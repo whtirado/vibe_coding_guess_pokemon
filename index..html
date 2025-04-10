@@ -544,6 +544,7 @@
           if (url) {
             try {
               const audio = new Audio(url);
+              audio.volume = 0.3; // Set volume to 50%
               audio
                 .play()
                 .catch((e) => console.error("Error playing sound:", e)); // Handle autoplay restrictions/errors
