@@ -134,8 +134,16 @@
         justify-content: space-between;
         align-items: center;
         margin-bottom: 10px; /* Space before checkboxes */
+        flex-wrap: wrap; /* Allow wrapping on small screens */
+        gap: 10px;
       }
-      #select-all-gens-button {
+      #generation-buttons {
+        display: flex;
+        gap: 10px; /* Space between buttons */
+      }
+
+      #select-all-gens-button,
+      #randomize-gens-button {
         padding: 5px 10px;
         font-size: 0.85em;
         background-color: var(--secondary-color);
@@ -145,8 +153,15 @@
         cursor: pointer;
         transition: background-color 0.2s ease;
       }
-      #select-all-gens-button:hover {
+      #select-all-gens-button:hover,
+      #randomize-gens-button:hover {
         background-color: #5a6268;
+      }
+      #randomize-gens-button {
+        background-color: var(--info-color);
+      }
+      #randomize-gens-button:hover {
+        background-color: #138496;
       }
 
       #generation-selector {
@@ -160,7 +175,20 @@
         background-color: var(--light-gray);
         border: 1px solid var(--border-color);
         border-radius: var(--border-radius);
+        margin-top: 5px; /* Space below buttons */
       }
+      #random-gen-status {
+        display: none; /* Hidden by default */
+        font-style: italic;
+        color: var(--primary-color);
+        background-color: var(--light-gray);
+        padding: 10px;
+        border-radius: var(--border-radius);
+        border: 1px solid var(--border-color);
+        margin-top: 5px;
+        text-align: center;
+      }
+
       .gen-checkbox-label {
         display: flex; /* Use flex for better alignment */
         align-items: center;
@@ -375,8 +403,19 @@
         color: var(--dark-gray);
       }
 
+      /* Dex Hint Styling */
+      #dex-hint {
+        min-height: 1.2em; /* Reserve space */
+        margin-top: -10px; /* Pull closer to guess area */
+        margin-bottom: 10px;
+        font-size: 1em;
+        font-weight: 500;
+        color: var(--info-color);
+        display: none; /* Hidden by default */
+      }
+
       #feedback {
-        margin-top: 15px; /* Increased margin */
+        margin-top: 5px; /* Reduced margin because hint is above */
         font-size: 1.2em;
         font-weight: bold;
         min-height: 1.5em;
@@ -481,8 +520,12 @@
       <div class="control-section">
         <div id="generation-controls-header">
           <label class="control-label">Generations</label>
-          <button id="select-all-gens-button">Deselect All</button>
+          <div id="generation-buttons">
+            <button id="randomize-gens-button">Randomize</button>
+            <button id="select-all-gens-button">Deselect All</button>
+          </div>
         </div>
+        <div id="random-gen-status">Generations will be chosen randomly!</div>
         <div id="generation-selector">
           <!-- Checkboxes will be populated by JS -->
         </div>
@@ -511,9 +554,8 @@
               id="show-dex-number-checkbox"
               name="show-dex-number"
             />
-            <label for="show-dex-number-checkbox"
-              >Show National Dex Number</label
-            >
+            <label for="show-dex-number-checkbox">Show Dex Number Hint</label>
+            <!-- Updated Label -->
           </div>
         </div>
       </div>
@@ -549,6 +591,8 @@
         />
         <ul id="autocomplete-list"></ul>
       </div>
+      <div id="dex-hint"></div>
+      <!-- Element for Dex Hint -->
       <div id="feedback">Guess the Pokémon!</div>
 
       <!-- Action Buttons Container -->
@@ -580,6 +624,7 @@
           9: { start: 906, end: 1025, name: "Gen 9" }, // Includes Paldea + Kitakami + Blueberry
         };
         const LATEST_POKEMON_ID = 1025; // Current max National Dex number
+        const ALL_GEN_KEYS = Object.keys(generationRanges).map(Number); // Array of [1, 2, ..., 9]
 
         // Global Pokemon Data Store
         let allPokemonData = []; // Will store { name: string, id: number } for all fetched Pokemon
@@ -607,6 +652,8 @@
         let playCryEnabled = false;
         let autocompleteEnabled = true;
         let showDexNumberEnabled = false; // Default off for Dex Number
+        let randomGenerationsActive = false; // Flag for random generation mode
+        let randomlySelectedGens = []; // Stores randomly chosen generation keys
 
         let gameIsActive = false;
         let roundActive = false;
@@ -634,7 +681,7 @@
         function revealPokemon(showFeedback = true) {
           $("#pokemon-image").removeClass("silhouette hidden");
           if (showFeedback) {
-            // Add dex number to feedback if enabled
+            // Add dex number to feedback on reveal (optional, but good confirmation)
             const dexNumText = showDexNumberEnabled
               ? ` (#${currentPokemonId})`
               : "";
@@ -644,6 +691,8 @@
               )}<span class="dex-number">${dexNumText}</span>`
             ); // Use .html() to render span
           }
+          // Ensure hint is cleared AFTER reveal if it wasn't already
+          $("#dex-hint").hide().text("");
         }
 
         function normalizeName(name) {
@@ -769,6 +818,8 @@
           });
           // Update select/deselect button text based on initial state
           updateSelectAllButtonText();
+          // Ensure random mode UI is off initially
+          setRandomGenerationMode(false);
         }
 
         // --- Generation Selection Button Logic ---
@@ -782,22 +833,30 @@
           $("#select-all-gens-button").text(
             allChecked ? "Deselect All" : "Select All"
           );
+          // Enable/disable start button based on selection (only if not in random mode)
+          if (!randomGenerationsActive) {
+            const anyChecked = $genCheckboxes.filter(":checked").length > 0;
+            $("#start-game").prop(
+              "disabled",
+              !anyChecked || allPokemonData.length === 0
+            );
+          } else {
+            // In random mode, start is always possible once data is loaded
+            $("#start-game").prop("disabled", allPokemonData.length === 0);
+          }
         }
 
         $("#select-all-gens-button").on("click", function () {
+          if (randomGenerationsActive) return; // Don't allow if random mode is on
+
           const $genCheckboxes = $(
             "#generation-selector input[type='checkbox']"
           );
           const allChecked =
             $genCheckboxes.length > 0 &&
             $genCheckboxes.length === $genCheckboxes.filter(":checked").length;
-          if (allChecked) {
-            $genCheckboxes.prop("checked", false);
-            $(this).text("Select All");
-          } else {
-            $genCheckboxes.prop("checked", true);
-            $(this).text("Deselect All");
-          }
+          $genCheckboxes.prop("checked", !allChecked);
+          updateSelectAllButtonText(); // Update button text and potentially start button state
         });
 
         // Also update button text if a user manually clicks a checkbox
@@ -805,9 +864,56 @@
           "change",
           "input[type='checkbox']",
           function () {
+            if (randomGenerationsActive) return; // Ignore clicks if random mode is on
             updateSelectAllButtonText();
           }
         );
+
+        // --- Randomize Generations Button Logic ---
+        function setRandomGenerationMode(isActive) {
+          randomGenerationsActive = isActive;
+          if (isActive) {
+            $("#generation-selector").hide();
+            $("#select-all-gens-button").hide();
+            $("#random-gen-status").show();
+            $("#randomize-gens-button").text("Select Manually");
+
+            // Perform the randomization
+            randomlySelectedGens = [];
+            const numGensToSelect =
+              Math.floor(Math.random() * ALL_GEN_KEYS.length) + 1; // 1 to 9 gens
+            const availableGens = [...ALL_GEN_KEYS];
+            for (let i = 0; i < numGensToSelect; i++) {
+              const randomIndex = Math.floor(
+                Math.random() * availableGens.length
+              );
+              randomlySelectedGens.push(
+                availableGens.splice(randomIndex, 1)[0]
+              );
+            }
+            console.log(
+              "Randomly selected generations (hidden):",
+              randomlySelectedGens.sort((a, b) => a - b)
+            );
+            $("#start-game").prop("disabled", allPokemonData.length === 0); // Enable start if data ready
+          } else {
+            $("#generation-selector").show();
+            $("#select-all-gens-button").show();
+            $("#random-gen-status").hide();
+            $("#randomize-gens-button").text("Randomize");
+            randomlySelectedGens = [];
+            // Reset checkboxes to all selected when returning to manual
+            $("#generation-selector input[type='checkbox']").prop(
+              "checked",
+              true
+            );
+            updateSelectAllButtonText(); // Update button text and check start button state
+          }
+        }
+
+        $("#randomize-gens-button").on("click", function () {
+          setRandomGenerationMode(!randomGenerationsActive); // Toggle the mode
+        });
 
         // --- Timer Controls ---
         $("#increase-time").on("click", function () {
@@ -836,6 +942,7 @@
           availablePokemonIds = [];
           selectedPokemonNames = [];
           totalSelectedPokemon = 0;
+          randomlySelectedGens = []; // Clear random gens
 
           $("#controls-container").show();
           $("#game-container").hide();
@@ -851,16 +958,13 @@
           $("#start-game").prop("disabled", allPokemonData.length === 0);
 
           // Reset options to defaults
-          // Set all generation checkboxes to checked
-          $("#generation-selector input[type='checkbox']").prop(
-            "checked",
-            true
-          );
-          updateSelectAllButtonText(); // Update the button text
-
           $("#play-cry-checkbox").prop("checked", false);
           $("#autocomplete-checkbox").prop("checked", true);
           $("#show-dex-number-checkbox").prop("checked", false);
+
+          // Reset generation selection UI to default (manual, all checked)
+          setRandomGenerationMode(false); // Ensures manual mode is active, checkboxes shown, all checked
+          // updateSelectAllButtonText(); // Called within setRandomGenerationMode(false)
 
           // Reset timer display to configured duration
           $("#timer-setting").text(formatTime(timerDuration));
@@ -870,6 +974,7 @@
           $("#feedback")
             .text("Guess the Pokémon!")
             .removeClass("correct incorrect info");
+          $("#dex-hint").hide().text(""); // Hide dex hint
           $("#pokemon-image").addClass("silhouette hidden").attr("src", "");
           $("#loading").show().text("Loading Pokémon...");
           $("#autocomplete-list").hide().empty();
@@ -879,6 +984,8 @@
           // Ensure start button text is correct based on data load status
           if (allPokemonData.length > 0) {
             $("#start-game").text("Start Game").prop("disabled", false);
+            // Double check start button based on current generation mode/selection
+            updateSelectAllButtonText();
           } else {
             $("#start-game")
               .text("Loading Pokémon Data...")
@@ -890,25 +997,52 @@
           // --- Determine Selected Generations and Filter Pokemon ---
           availablePokemonIds = [];
           selectedPokemonNames = [];
-          const selectedGenerations = $("#generation-selector input:checked")
-            .map(function () {
-              return parseInt($(this).val());
-            })
-            .get();
+          let selectedGenerations = [];
 
-          if (selectedGenerations.length === 0) {
-            alert("Please select at least one generation!");
-            return; // Stop if no generations are selected
+          if (randomGenerationsActive) {
+            selectedGenerations = randomlySelectedGens;
+            if (selectedGenerations.length === 0) {
+              alert(
+                "Error: No generations were randomly selected. Please try again."
+              );
+              // Consider reverting to manual mode?
+              setRandomGenerationMode(false);
+              return;
+            }
+            console.log(
+              "Starting game with randomly selected generations:",
+              selectedGenerations.join(", ")
+            );
+          } else {
+            selectedGenerations = $("#generation-selector input:checked")
+              .map(function () {
+                return parseInt($(this).val());
+              })
+              .get();
+
+            if (selectedGenerations.length === 0) {
+              alert("Please select at least one generation!");
+              return; // Stop if no generations are selected
+            }
+            console.log(
+              `Starting game manually with generations: ${selectedGenerations.join(
+                ", "
+              )}`
+            );
           }
 
+          // Filter Pokemon based on selectedGenerations
           selectedGenerations.forEach((genKey) => {
             const range = generationRanges[genKey];
+            if (!range) {
+              console.warn(`Invalid generation key found: ${genKey}`);
+              return; // Skip invalid gen key
+            }
             const genPokemon = allPokemonData.filter(
               (p) => p.id >= range.start && p.id <= range.end
             );
             genPokemon.forEach((p) => {
               if (!availablePokemonIds.includes(p.id)) {
-                // Avoid duplicates (unlikely with standard ranges)
                 availablePokemonIds.push(p.id);
                 selectedPokemonNames.push(p.name); // Store names for autocomplete
               }
@@ -919,16 +1053,13 @@
             alert(
               "No Pokémon could be loaded for the selected generations. Please check the data or selection."
             );
-            $("#start-game").prop("disabled", false); // Re-enable start button maybe
+            // Re-enable start button if disabled
+            $("#start-game").prop("disabled", allPokemonData.length === 0);
             return;
           }
 
           totalSelectedPokemon = availablePokemonIds.length;
-          console.log(
-            `Starting game with ${totalSelectedPokemon} Pokémon from generations: ${selectedGenerations.join(
-              ", "
-            )}`
-          );
+          console.log(`Total Pokémon for this game: ${totalSelectedPokemon}`);
 
           // --- Reset Game State ---
           gameIsActive = true;
@@ -958,6 +1089,7 @@
           $("#feedback")
             .text("Guess the Pokémon!")
             .removeClass("correct incorrect info");
+          $("#dex-hint").hide().text(""); // Hide dex hint initially
           $("#skip-pokemon").hide(); // Hide skip initially
           $("#next-pokemon").hide(); // Hide next initially
 
@@ -976,9 +1108,11 @@
           $("#next-pokemon").hide();
           $("#skip-pokemon").hide().prop("disabled", true); // Hide and disable skip on game end
           $("#autocomplete-list").hide();
+          $("#dex-hint").hide().text(""); // Hide dex hint on game end
+
           if (currentPokemonImageUrl && currentPokemonName) {
             // Ensure we have a Pokemon loaded before revealing
-            revealPokemon(); // Show the last Pokemon
+            revealPokemon(false); // Show the last Pokemon without feedback text override here
           } else {
             // If no Pokemon was loaded (e.g., time runs out instantly)
             $("#pokemon-image").addClass("hidden").attr("src", ""); // Hide placeholder/loading
@@ -997,10 +1131,20 @@
             feedbackText = `Game Over! ${finalMessageBase}`;
           }
 
+          // Reveal last Pokemon name in feedback if one was loaded
+          if (currentPokemonName) {
+            const dexNumText = showDexNumberEnabled
+              ? ` (#${currentPokemonId})`
+              : "";
+            feedbackText += `<br>Last Pokémon was: ${displayPokemonName(
+              currentPokemonName
+            )}<span class="dex-number">${dexNumText}</span>`;
+          }
+
           $("#feedback")
-            .html(feedbackText)
+            .html(feedbackText) // Use html() for potential line break
             .removeClass("correct incorrect")
-            .addClass("info"); // Use html() for potential future formatting
+            .addClass("info");
           $("#endgame-controls").show().css("display", "flex"); // Show and ensure flex display
         }
 
@@ -1049,6 +1193,7 @@
           $("#pokemon-image").addClass("hidden silhouette").attr("src", ""); // Ensure silhouette is added initially, hide
           $("#loading").show().text("Loading Pokémon...");
           $("#feedback").text("").removeClass("correct incorrect info");
+          $("#dex-hint").hide().text(""); // Hide hint while loading
           $("#pokemon-guess").val("").prop("disabled", true);
           $("#autocomplete-list").hide().empty();
           $("#next-pokemon").hide();
@@ -1145,6 +1290,15 @@
                   guessedPokemonIds.add(currentPokemonId);
                   roundActive = true;
                   $("#skip-pokemon").show().prop("disabled", false); // Show and enable skip button
+
+                  // Display Dex Number Hint if enabled
+                  if (showDexNumberEnabled) {
+                    $("#dex-hint")
+                      .text(`Hint: National Dex #${currentPokemonId}`)
+                      .show();
+                  } else {
+                    $("#dex-hint").hide().text("");
+                  }
 
                   if (playCryEnabled) {
                     // Play cry slightly after image appears
@@ -1358,22 +1512,17 @@
             } // Don't increment correct if they got it wrong first
 
             updateScoreDisplay();
-            const dexNumText = showDexNumberEnabled
-              ? ` (#${currentPokemonId})`
-              : "";
+            // Feedback confirms name, Dex number added by revealPokemon if needed
             $feedback
-              .html(
-                `Correct! It's ${displayPokemonName(
-                  currentPokemonName
-                )}<span class="dex-number">${dexNumText}</span>`
-              )
+              .html(`Correct! It's ${displayPokemonName(currentPokemonName)}`) // Basic correct message
               .removeClass("incorrect info")
               .addClass("correct");
-            revealPokemon(false); // Reveal image, feedback already set
+            revealPokemon(true); // Reveal image AND update feedback with Dex# if needed
             $("#pokemon-guess").prop("disabled", true);
             $("#skip-pokemon").hide().prop("disabled", true); // Hide and disable skip
             $("#next-pokemon").show().focus(); // Show Next button and focus it
             roundActive = false; // End the round successfully
+            $("#dex-hint").hide().text(""); // Hide hint on correct guess
           } else {
             // Incorrect guess
             if (!firstIncorrectGuessMade) {
@@ -1386,6 +1535,7 @@
               .removeClass("correct info")
               .addClass("incorrect");
             $("#pokemon-guess").select().focus(); // Select text and keep focus for easy re-entry
+            // Keep hint visible if enabled
           }
         }
 
@@ -1404,9 +1554,9 @@
           $("#pokemon-guess").prop("disabled", true);
           $("#skip-pokemon").hide().prop("disabled", true); // Hide and disable skip itself
           $("#autocomplete-list").hide();
+          $("#dex-hint").hide().text(""); // Hide hint on skip
 
           // Reveal the answer
-          revealPokemon(false); // Reveal image first
           const dexNumText = showDexNumberEnabled
             ? ` (#${currentPokemonId})`
             : "";
@@ -1416,8 +1566,9 @@
                 currentPokemonName
               )}<span class="dex-number">${dexNumText}</span>`
             )
-            .removeClass("correct") // Keep 'incorrect' class potentially
+            .removeClass("correct")
             .addClass("info incorrect"); // Style as info/skipped, potentially also incorrect styling
+          revealPokemon(false); // Reveal image (feedback already set)
 
           // Show the next button instead of auto-loading
           $("#next-pokemon").show().focus();
@@ -1438,7 +1589,7 @@
         // --- Initial Setup ---
         populateGenerationCheckboxes(); // Add generation checkboxes to the DOM
         fetchAllPokemonNames(); // Start fetching all names immediately
-        initGame(); // Set up the initial screen state (will set all gens checked)
+        initGame(); // Set up the initial screen state (will set all gens checked, manual mode)
       });
     </script>
   </body>
