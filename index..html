@@ -11,140 +11,256 @@
       crossorigin="anonymous"
     ></script>
     <style>
+      :root {
+        --primary-color: #007bff;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+        --info-color: #17a2b8;
+        --secondary-color: #6c757d;
+        --light-gray: #f8f9fa;
+        --medium-gray: #e9ecef;
+        --dark-gray: #343a40;
+        --text-color: #212529;
+        --border-color: #dee2e6;
+        --border-radius: 0.375rem; /* Bootstrap default */
+        --box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      }
+
       body {
-        font-family: "Arial", sans-serif;
-        background-color: #f0f0f0;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto,
+          "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif,
+          "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+          "Noto Color Emoji";
+        background-color: var(--light-gray);
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
+        justify-content: flex-start; /* Start content at the top */
         min-height: 100vh;
         margin: 0;
         padding: 20px;
         box-sizing: border-box;
+        color: var(--text-color);
       }
 
       h1 {
-        color: #333;
-        margin-bottom: 10px;
-        text-shadow: 1px 1px 2px #aaa;
+        color: var(--dark-gray);
+        margin-bottom: 20px; /* Increased margin */
+        text-shadow: 1px 1px 2px #ccc;
       }
 
-      #controls-container,
-      #game-container {
+      /* --- Modernized Setup Form --- */
+      #controls-container {
         background-color: #fff;
-        padding: 20px 30px;
-        border-radius: 10px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        padding: 25px 30px;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
         text-align: center;
-        max-width: 450px; /* Increased width slightly */
+        max-width: 500px; /* Slightly wider for better layout */
         width: 100%;
+        margin-bottom: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px; /* Spacing between control sections */
+      }
+
+      #controls-container h2 {
+        margin-top: 0;
         margin-bottom: 15px;
+        color: var(--dark-gray);
+        font-size: 1.5em;
       }
 
-      #game-container {
-        display: none; /* Initially hidden */
+      .control-section {
+        border-top: 1px solid var(--border-color);
+        padding-top: 20px;
+        text-align: left; /* Align labels nicely */
+      }
+      .control-section:first-of-type {
+        border-top: none;
+        padding-top: 0;
       }
 
-      #timer-controls button {
-        padding: 5px 10px;
-        font-size: 1.2em;
-        margin: 0 5px;
-        cursor: pointer;
-        border: 1px solid #ccc;
-        background-color: #eee;
-        border-radius: 4px;
-      }
-      #timer-controls span {
-        font-size: 1.1em;
-        font-weight: bold;
-        margin: 0 10px;
-        min-width: 60px;
-        display: inline-block;
+      .control-label {
+        display: block;
+        font-weight: 600; /* Slightly bolder */
+        margin-bottom: 10px;
+        color: var(--text-color);
       }
 
-      .control-option {
-        margin-top: 15px;
+      /* Timer Controls */
+      #timer-controls {
         display: flex;
         align-items: center;
-        justify-content: center;
-        flex-wrap: wrap; /* Allow wrapping for generation checkboxes */
+        justify-content: center; /* Center timer elements */
+        gap: 10px;
       }
-      .control-option label {
-        margin-right: 10px;
+      #timer-controls button {
+        padding: 8px 12px;
+        font-size: 1.1em;
+        cursor: pointer;
+        border: 1px solid var(--border-color);
+        background-color: var(--medium-gray);
+        color: var(--dark-gray);
+        border-radius: var(--border-radius);
+        transition: background-color 0.2s ease, border-color 0.2s ease;
         font-weight: bold;
+        line-height: 1; /* Better button height consistency */
       }
-      /* Checkbox labels */
-      #cry-controls label,
-      #autocomplete-controls label,
-      #dex-number-controls label,
-      #generation-controls label {
-        margin-left: 5px;
-        margin-right: 0;
-        font-weight: normal;
+      #timer-controls button:hover:not(:disabled) {
+        background-color: #d3d9df;
+        border-color: #adb5bd;
       }
-      #cry-controls,
-      #autocomplete-controls,
-      #dex-number-controls,
-      #generation-controls {
-        margin-top: 10px;
+      #timer-controls button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      #timer-controls span {
+        font-size: 1.2em;
+        font-weight: bold;
+        min-width: 65px;
+        display: inline-block;
+        text-align: center;
+        background-color: var(--light-gray);
+        padding: 5px 10px;
+        border-radius: var(--border-radius);
+        border: 1px solid var(--border-color);
       }
 
       /* Generation Selection Styles */
-      #generation-selector {
+      #generation-controls-header {
         display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 10px;
-        margin-top: 5px;
-        max-width: 350px; /* Limit width of checkbox area */
-        margin-left: auto;
-        margin-right: auto;
-      }
-      .gen-checkbox-label {
-        display: inline-flex; /* Use inline-flex for better alignment */
+        justify-content: space-between;
         align-items: center;
-        margin-right: 10px; /* Spacing between checkboxes */
-        font-weight: normal;
-        cursor: pointer;
+        margin-bottom: 10px; /* Space before checkboxes */
       }
-      .gen-checkbox-label input[type="checkbox"] {
-        margin-right: 4px; /* Space between checkbox and its text */
-      }
-
-      #start-game {
-        margin-top: 20px; /* Increased margin */
-        padding: 10px 20px;
-        font-size: 1.1em;
-        background-color: #28a745;
+      #select-all-gens-button {
+        padding: 5px 10px;
+        font-size: 0.85em;
+        background-color: var(--secondary-color);
         color: white;
         border: none;
-        border-radius: 5px;
+        border-radius: var(--border-radius);
         cursor: pointer;
         transition: background-color 0.2s ease;
       }
+      #select-all-gens-button:hover {
+        background-color: #5a6268;
+      }
+
+      #generation-selector {
+        display: grid; /* Use grid for alignment */
+        grid-template-columns: repeat(
+          auto-fit,
+          minmax(90px, 1fr)
+        ); /* Responsive columns */
+        gap: 10px; /* Spacing between checkboxes */
+        padding: 10px;
+        background-color: var(--light-gray);
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+      }
+      .gen-checkbox-label {
+        display: flex; /* Use flex for better alignment */
+        align-items: center;
+        font-weight: normal;
+        cursor: pointer;
+        padding: 5px;
+        border-radius: var(--border-radius);
+        transition: background-color 0.15s ease;
+      }
+      .gen-checkbox-label:hover {
+        background-color: var(--medium-gray);
+      }
+      .gen-checkbox-label input[type="checkbox"] {
+        margin-right: 8px; /* Space between checkbox and its text */
+        accent-color: var(--primary-color); /* Modern checkbox color */
+        width: 1em;
+        height: 1em;
+      }
+
+      /* Checkbox Option Controls (Cry, Autocomplete, Dex) */
+      .checkbox-option {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background-color: var(--light-gray);
+        padding: 12px 15px;
+        border-radius: var(--border-radius);
+        border: 1px solid var(--border-color);
+        cursor: pointer;
+        transition: background-color 0.15s ease;
+      }
+      .checkbox-option:hover {
+        background-color: var(--medium-gray);
+      }
+      .checkbox-option input[type="checkbox"] {
+        margin: 0; /* Remove default margins */
+        accent-color: var(--primary-color);
+        width: 1.1em;
+        height: 1.1em;
+      }
+      .checkbox-option label {
+        margin: 0; /* Remove default margins */
+        font-weight: normal;
+        flex-grow: 1; /* Label takes remaining space */
+        cursor: pointer; /* Make label clickable */
+      }
+
+      /* --- Start Button & Loading --- */
+      #start-game {
+        margin-top: 15px; /* Reduced margin slightly */
+        padding: 12px 25px;
+        font-size: 1.2em; /* Slightly larger font */
+        background-color: var(--success-color);
+        color: white;
+        border: none;
+        border-radius: var(--border-radius);
+        cursor: pointer;
+        transition: background-color 0.2s ease, box-shadow 0.2s ease;
+        width: 100%; /* Full width button */
+        font-weight: 500;
+      }
       #start-game:hover:not(:disabled) {
         background-color: #218838;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
       }
       #start-game:disabled {
-        background-color: #aaa;
+        background-color: var(--secondary-color);
+        opacity: 0.7;
         cursor: not-allowed;
       }
       #loading-names {
         font-style: italic;
-        color: #555;
+        color: var(--secondary-color);
         margin-top: 10px;
+        font-size: 0.9em;
         display: none; /* Hidden initially */
+        text-align: center;
+      }
+
+      /* --- Game Container --- */
+      #game-container {
+        background-color: #fff;
+        padding: 20px 30px;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+        text-align: center;
+        max-width: 450px;
+        width: 100%;
+        margin-bottom: 15px;
+        display: none; /* Initially hidden */
       }
 
       #restart-game {
-        background-color: #007bff;
+        background-color: var(--primary-color);
         margin-left: 10px;
         padding: 10px 20px;
         font-size: 1em;
         color: white;
         border: none;
-        border-radius: 5px;
+        border-radius: var(--border-radius);
         cursor: pointer;
         transition: background-color 0.2s ease;
       }
@@ -157,14 +273,16 @@
         justify-content: space-around;
         margin-bottom: 15px;
         font-size: 1.1em;
-        font-weight: bold;
+        font-weight: 500; /* Slightly less bold */
+        color: var(--secondary-color);
       }
       #timer-area span,
       #score-area span {
-        color: #007bff;
+        color: var(--primary-color);
+        font-weight: bold;
       }
       #score-area span.incorrect {
-        color: #dc3545;
+        color: var(--danger-color);
       }
 
       #pokemon-display {
@@ -174,16 +292,20 @@
         align-items: center;
         justify-content: center;
         position: relative;
+        background-color: var(--light-gray);
+        border-radius: var(--border-radius);
+        border: 1px solid var(--border-color);
+        overflow: hidden; /* Ensure image stays within bounds */
       }
 
       #pokemon-image {
         max-width: 100%;
-        max-height: 200px;
+        max-height: 180px; /* Slightly smaller to avoid touching edges */
         height: auto;
         display: block;
         margin: 0 auto;
         opacity: 1;
-        transition: opacity 0.3s ease-in-out;
+        transition: opacity 0.3s ease-in-out, filter 0.3s ease-in-out; /* Added filter transition */
       }
       #pokemon-image.silhouette {
         filter: brightness(0);
@@ -196,39 +318,45 @@
       #loading {
         position: absolute;
         font-size: 1.1em;
-        color: #555;
+        color: var(--secondary-color);
       }
 
       #guess-area {
         position: relative;
-        margin-bottom: 10px;
+        margin-bottom: 15px; /* Increased margin */
       }
 
       #pokemon-guess {
-        width: 90%;
+        width: 100%; /* Full width */
         padding: 12px 15px;
         font-size: 1.1em;
-        border: 1px solid #ccc;
-        border-radius: 5px;
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
         box-sizing: border-box;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+      #pokemon-guess:focus {
+        border-color: var(--primary-color);
+        outline: 0;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
       }
       #pokemon-guess:disabled {
-        background-color: #e9ecef;
+        background-color: var(--medium-gray);
         cursor: not-allowed;
       }
 
       #autocomplete-list {
         list-style: none;
         padding: 0;
-        margin: 0;
+        margin: 5px 0 0 0; /* Add margin top */
         position: absolute;
-        left: 5%;
-        right: 5%;
+        left: 0; /* Align with input */
+        right: 0; /* Align with input */
         top: 100%;
         background-color: #fff;
-        border: 1px solid #ccc;
+        border: 1px solid var(--border-color);
         border-top: none;
-        border-radius: 0 0 5px 5px;
+        border-radius: 0 0 var(--border-radius) var(--border-radius);
         max-height: 150px;
         overflow-y: auto;
         z-index: 10;
@@ -239,67 +367,74 @@
         padding: 10px 15px;
         cursor: pointer;
         text-align: left;
+        font-size: 1em;
       }
       #autocomplete-list li:hover,
       #autocomplete-list li.autocomplete-highlight {
-        background-color: #eee;
+        background-color: var(--medium-gray);
+        color: var(--dark-gray);
       }
 
       #feedback {
-        margin-top: 10px;
+        margin-top: 15px; /* Increased margin */
         font-size: 1.2em;
         font-weight: bold;
         min-height: 1.5em;
-        color: #555;
+        color: var(--secondary-color);
+        transition: color 0.3s ease;
       }
       #feedback.correct {
-        color: #28a745;
+        color: var(--success-color);
       }
       #feedback.incorrect {
-        color: #dc3545;
+        color: var(--danger-color);
       }
       #feedback.info {
-        color: #007bff;
+        color: var(--primary-color);
       }
       #feedback .dex-number {
         font-weight: normal;
-        color: #555; /* Slightly muted color for dex number */
+        color: var(--secondary-color); /* Slightly muted color for dex number */
         font-size: 0.9em;
         margin-left: 5px;
       }
 
       #game-actions {
-        margin-top: 15px;
+        margin-top: 20px; /* Increased margin */
         display: flex;
         justify-content: center;
         gap: 10px; /* Add space between buttons */
       }
 
       #skip-pokemon,
-      #next-pokemon {
+      #next-pokemon,
+      #restart-game,
+      #return-to-setup {
         padding: 10px 20px;
         font-size: 1em;
         border: none;
-        border-radius: 5px;
+        border-radius: var(--border-radius);
         cursor: pointer;
         transition: background-color 0.2s ease;
+        font-weight: 500;
       }
 
       #skip-pokemon {
-        background-color: #ffc107; /* Yellow */
-        color: #333;
+        background-color: var(--warning-color);
+        color: var(--dark-gray);
         display: none; /* Hidden until round starts */
       }
-      #skip-pokemon:hover {
+      #skip-pokemon:hover:not(:disabled) {
         background-color: #e0a800;
       }
       #skip-pokemon:disabled {
-        background-color: #aaa;
+        background-color: var(--secondary-color);
+        opacity: 0.7;
         cursor: not-allowed;
       }
 
       #next-pokemon {
-        background-color: #17a2b8; /* Teal/Info */
+        background-color: var(--info-color);
         color: white;
         display: none; /* Hidden initially */
       }
@@ -308,18 +443,14 @@
       }
 
       #endgame-controls {
-        margin-top: 15px;
+        margin-top: 20px; /* Increased margin */
         display: none; /* Hidden initially */
+        gap: 10px;
+        justify-content: center;
       }
       #return-to-setup {
-        padding: 10px 20px;
-        font-size: 1em;
-        background-color: #6c757d;
+        background-color: var(--secondary-color);
         color: white;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        transition: background-color 0.2s ease;
       }
       #return-to-setup:hover {
         background-color: #5a6268;
@@ -331,50 +462,60 @@
 
     <div id="controls-container">
       <h2>Game Setup</h2>
-      <div id="timer-controls" class="control-option">
-        <label for="timer-setting">Timer:</label>
-        <button id="decrease-time" aria-label="Decrease time by 30 seconds">
-          -
-        </button>
-        <span id="timer-setting">01:00</span>
-        <button id="increase-time" aria-label="Increase time by 30 seconds">
-          +
-        </button>
+
+      <!-- Timer -->
+      <div class="control-section">
+        <label class="control-label" for="timer-setting">Timer Duration</label>
+        <div id="timer-controls">
+          <button id="decrease-time" aria-label="Decrease time by 30 seconds">
+            -
+          </button>
+          <span id="timer-setting">01:00</span>
+          <button id="increase-time" aria-label="Increase time by 30 seconds">
+            +
+          </button>
+        </div>
       </div>
 
       <!-- Generation Selection -->
-      <div id="generation-controls" class="control-option">
-        <label>Generations:</label>
+      <div class="control-section">
+        <div id="generation-controls-header">
+          <label class="control-label">Generations</label>
+          <button id="select-all-gens-button">Deselect All</button>
+        </div>
         <div id="generation-selector">
           <!-- Checkboxes will be populated by JS -->
         </div>
       </div>
 
-      <!-- Pokemon Cry Checkbox -->
-      <div id="cry-controls" class="control-option">
-        <input type="checkbox" id="play-cry-checkbox" name="play-cry" />
-        <label for="play-cry-checkbox">Play Pokémon Cry</label>
-      </div>
-
-      <!-- Autocomplete Checkbox -->
-      <div id="autocomplete-controls" class="control-option">
-        <input
-          type="checkbox"
-          id="autocomplete-checkbox"
-          name="autocomplete"
-          checked
-        />
-        <label for="autocomplete-checkbox">Enable Autocomplete</label>
-      </div>
-
-      <!-- Show Dex Number Checkbox -->
-      <div id="dex-number-controls" class="control-option">
-        <input
-          type="checkbox"
-          id="show-dex-number-checkbox"
-          name="show-dex-number"
-        />
-        <label for="show-dex-number-checkbox">Show National Dex Number</label>
+      <!-- Options -->
+      <div class="control-section">
+        <label class="control-label">Options</label>
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <div class="checkbox-option" id="cry-controls">
+            <input type="checkbox" id="play-cry-checkbox" name="play-cry" />
+            <label for="play-cry-checkbox">Play Pokémon Cry</label>
+          </div>
+          <div class="checkbox-option" id="autocomplete-controls">
+            <input
+              type="checkbox"
+              id="autocomplete-checkbox"
+              name="autocomplete"
+              checked
+            />
+            <label for="autocomplete-checkbox">Enable Autocomplete</label>
+          </div>
+          <div class="checkbox-option" id="dex-number-controls">
+            <input
+              type="checkbox"
+              id="show-dex-number-checkbox"
+              name="show-dex-number"
+            />
+            <label for="show-dex-number-checkbox"
+              >Show National Dex Number</label
+            >
+          </div>
+        </div>
       </div>
 
       <button id="start-game" disabled>Loading Pokémon Data...</button>
@@ -417,7 +558,8 @@
       </div>
 
       <!-- Controls shown after game end -->
-      <div id="endgame-controls">
+      <div id="endgame-controls" style="display: flex">
+        <!-- Use inline style temporarily if needed, or add class -->
         <button id="restart-game">Restart Game</button>
         <button id="return-to-setup">Change Settings</button>
       </div>
@@ -458,7 +600,7 @@
         let firstIncorrectGuessMade = false;
 
         let timerInterval = null;
-        let timerDuration = 60;
+        let timerDuration = 60; // Default 1 minute
         let timeLeft = 0;
 
         // Game Settings
@@ -507,6 +649,7 @@
         function normalizeName(name) {
           // Handles most cases including Nidoran♀/♂, forms like meowth-galar, etc.
           // It also handles names with spaces like 'Mr. Mime' becoming 'mr-mime' from PokeAPI
+          if (!name) return "";
           return name
             .toLowerCase()
             .trim()
@@ -535,6 +678,18 @@
           if (name === "mime-jr") displayName = "Mime Jr.";
           if (name === "type-null") displayName = "Type: Null";
           if (
+            name === "jangmo-o" ||
+            name === "hakamo-o" ||
+            name === "kommo-o"
+          ) {
+            displayName = displayName.replace(" O", "-o"); // Handle the -o Pokemon
+          }
+          if (name.startsWith("porygon")) {
+            // Handle Porygon2 and Porygon-Z
+            if (name === "porygon2") displayName = "Porygon2";
+            if (name === "porygon-z") displayName = "Porygon-Z";
+          }
+          if (
             name === "tapu-koko" ||
             name === "tapu-lele" ||
             name === "tapu-bulu" ||
@@ -549,7 +704,7 @@
           if (url) {
             try {
               const audio = new Audio(url);
-              audio.volume = 0.3;
+              audio.volume = 0.3; // Lower volume
               audio
                 .play()
                 .catch((e) => console.error("Error playing sound:", e));
@@ -601,18 +756,58 @@
           Object.keys(generationRanges).forEach((genKey) => {
             const genInfo = generationRanges[genKey];
             const checkboxId = `gen-${genKey}-checkbox`;
-            // Check Gen 1 by default
-            const isChecked = genKey === "1";
+            // Check ALL generations by default
+            const isChecked = true;
             $selector.append(`
-                    <label for="${checkboxId}" class="gen-checkbox-label">
-                        <input type="checkbox" id="${checkboxId}" name="generation" value="${genKey}" ${
+              <label for="${checkboxId}" class="gen-checkbox-label">
+                  <input type="checkbox" id="${checkboxId}" name="generation" value="${genKey}" ${
               isChecked ? "checked" : ""
             }>
-                        ${genInfo.name}
-                    </label>
-                `);
+                  ${genInfo.name}
+              </label>
+            `);
           });
+          // Update select/deselect button text based on initial state
+          updateSelectAllButtonText();
         }
+
+        // --- Generation Selection Button Logic ---
+        function updateSelectAllButtonText() {
+          const $genCheckboxes = $(
+            "#generation-selector input[type='checkbox']"
+          );
+          const allChecked =
+            $genCheckboxes.length > 0 &&
+            $genCheckboxes.length === $genCheckboxes.filter(":checked").length;
+          $("#select-all-gens-button").text(
+            allChecked ? "Deselect All" : "Select All"
+          );
+        }
+
+        $("#select-all-gens-button").on("click", function () {
+          const $genCheckboxes = $(
+            "#generation-selector input[type='checkbox']"
+          );
+          const allChecked =
+            $genCheckboxes.length > 0 &&
+            $genCheckboxes.length === $genCheckboxes.filter(":checked").length;
+          if (allChecked) {
+            $genCheckboxes.prop("checked", false);
+            $(this).text("Select All");
+          } else {
+            $genCheckboxes.prop("checked", true);
+            $(this).text("Deselect All");
+          }
+        });
+
+        // Also update button text if a user manually clicks a checkbox
+        $("#generation-selector").on(
+          "change",
+          "input[type='checkbox']",
+          function () {
+            updateSelectAllButtonText();
+          }
+        );
 
         // --- Timer Controls ---
         $("#increase-time").on("click", function () {
@@ -644,19 +839,30 @@
 
           $("#controls-container").show();
           $("#game-container").hide();
-          $("#endgame-controls").hide();
+          $("#endgame-controls").hide(); // Ensure endgame controls are hidden
           $("#timer-controls button").prop("disabled", false);
-          $("#play-cry-checkbox").prop("disabled", false);
-          $("#autocomplete-checkbox").prop("disabled", false);
-          $("#show-dex-number-checkbox").prop("disabled", false);
-          $("#generation-selector input").prop("disabled", false);
 
-          // Reset checkboxes to defaults (Gen 1 checked, others not, settings reset)
-          populateGenerationCheckboxes(); // Repopulate to reset checks
+          // Enable all setup controls
+          $("#controls-container input, #controls-container button").prop(
+            "disabled",
+            false
+          );
+          // Special handling for start button until data loads
+          $("#start-game").prop("disabled", allPokemonData.length === 0);
+
+          // Reset options to defaults
+          // Set all generation checkboxes to checked
+          $("#generation-selector input[type='checkbox']").prop(
+            "checked",
+            true
+          );
+          updateSelectAllButtonText(); // Update the button text
+
           $("#play-cry-checkbox").prop("checked", false);
           $("#autocomplete-checkbox").prop("checked", true);
           $("#show-dex-number-checkbox").prop("checked", false);
 
+          // Reset timer display to configured duration
           $("#timer-setting").text(formatTime(timerDuration));
           updateScoreDisplay();
 
@@ -670,7 +876,7 @@
           $("#next-pokemon").hide();
           $("#skip-pokemon").hide().prop("disabled", false); // Also hide skip button
 
-          // Ensure start button is enabled if names are loaded
+          // Ensure start button text is correct based on data load status
           if (allPokemonData.length > 0) {
             $("#start-game").text("Start Game").prop("disabled", false);
           } else {
@@ -702,7 +908,7 @@
             );
             genPokemon.forEach((p) => {
               if (!availablePokemonIds.includes(p.id)) {
-                // Avoid duplicates if ranges overlap (shouldn't happen here)
+                // Avoid duplicates (unlikely with standard ranges)
                 availablePokemonIds.push(p.id);
                 selectedPokemonNames.push(p.name); // Store names for autocomplete
               }
@@ -711,8 +917,9 @@
 
           if (availablePokemonIds.length === 0) {
             alert(
-              "No Pokémon found for the selected generations. This shouldn't happen."
+              "No Pokémon could be loaded for the selected generations. Please check the data or selection."
             );
+            $("#start-game").prop("disabled", false); // Re-enable start button maybe
             return;
           }
 
@@ -725,6 +932,7 @@
 
           // --- Reset Game State ---
           gameIsActive = true;
+          roundActive = false; // Will be set true when pokemon loads
           correctCount = 0;
           incorrectCount = 0;
           guessedPokemonIds.clear();
@@ -738,17 +946,20 @@
           // --- Update UI ---
           $("#controls-container").hide();
           $("#game-container").show();
-          $("#endgame-controls").hide();
+          $("#endgame-controls").hide(); // Make sure endgame controls are hidden
+
+          // Disable setup controls during game
           $("#timer-controls button").prop("disabled", true);
-          $("#play-cry-checkbox").prop("disabled", true);
-          $("#autocomplete-checkbox").prop("disabled", true);
-          $("#show-dex-number-checkbox").prop("disabled", true);
-          $("#generation-selector input").prop("disabled", true);
+          $("#controls-container input, #controls-container button").prop(
+            "disabled",
+            true
+          );
 
           $("#feedback")
             .text("Guess the Pokémon!")
             .removeClass("correct incorrect info");
           $("#skip-pokemon").hide(); // Hide skip initially
+          $("#next-pokemon").hide(); // Hide next initially
 
           timeLeft = timerDuration;
           updateTimerDisplay();
@@ -766,8 +977,12 @@
           $("#skip-pokemon").hide().prop("disabled", true); // Hide and disable skip on game end
           $("#autocomplete-list").hide();
           if (currentPokemonImageUrl && currentPokemonName) {
-            // Ensure we have a Pokemon loaded
+            // Ensure we have a Pokemon loaded before revealing
             revealPokemon(); // Show the last Pokemon
+          } else {
+            // If no Pokemon was loaded (e.g., time runs out instantly)
+            $("#pokemon-image").addClass("hidden").attr("src", ""); // Hide placeholder/loading
+            $("#loading").hide(); // Hide loading text
           }
 
           const finalMessageBase = `Final Score: ${correctCount} Correct, ${incorrectCount} Incorrect out of ${totalSelectedPokemon} selected Pokémon.`;
@@ -778,6 +993,7 @@
           } else if (reason === "complete") {
             feedbackText = `Congratulations! You guessed all ${totalSelectedPokemon} selected Pokémon! ${finalMessageBase}`;
           } else {
+            // Generic end game message (though usually timeup or complete)
             feedbackText = `Game Over! ${finalMessageBase}`;
           }
 
@@ -785,7 +1001,7 @@
             .html(feedbackText)
             .removeClass("correct incorrect")
             .addClass("info"); // Use html() for potential future formatting
-          $("#endgame-controls").show();
+          $("#endgame-controls").show().css("display", "flex"); // Show and ensure flex display
         }
 
         function startTimer() {
@@ -809,14 +1025,28 @@
           if (!gameIsActive) return;
 
           // Check if all selected Pokemon have been guessed
-          if (guessedPokemonIds.size === totalSelectedPokemon) {
-            endGame("complete");
-            return;
+          const unguessedPokemonAvailable =
+            guessedPokemonIds.size < totalSelectedPokemon;
+          if (!unguessedPokemonAvailable) {
+            // Double check if any available IDs remain unguessed, just in case count is off
+            const anyLeft = availablePokemonIds.some(
+              (id) => !guessedPokemonIds.has(id)
+            );
+            if (!anyLeft) {
+              endGame("complete");
+              return;
+            } else {
+              console.warn(
+                "Guessed count reached total, but unguessed IDs still available. Recalculating total."
+              );
+              // This situation might indicate an issue elsewhere, but we try to continue
+              totalSelectedPokemon = availablePokemonIds.length; // Reset total just in case
+            }
           }
 
           roundActive = false;
           firstIncorrectGuessMade = false;
-          $("#pokemon-image").addClass("hidden silhouette"); // Ensure silhouette is added initially
+          $("#pokemon-image").addClass("hidden silhouette").attr("src", ""); // Ensure silhouette is added initially, hide
           $("#loading").show().text("Loading Pokémon...");
           $("#feedback").text("").removeClass("correct incorrect info");
           $("#pokemon-guess").val("").prop("disabled", true);
@@ -830,8 +1060,8 @@
           currentPokemonCryUrl = "";
 
           let randomId;
-          let attempts = 0; // Prevent infinite loops in rare cases
-          const maxAttempts = availablePokemonIds.length * 2; // Safety limit
+          let attempts = 0; // Prevent infinite loops
+          const maxAttempts = availablePokemonIds.length * 2 + 10; // Generous safety limit
 
           // Find an ID from the available list that hasn't been guessed yet
           do {
@@ -842,18 +1072,22 @@
             attempts++;
           } while (guessedPokemonIds.has(randomId) && attempts < maxAttempts);
 
+          // If we failed after many attempts, try finding the first available unguessed ID sequentially
           if (guessedPokemonIds.has(randomId) && attempts >= maxAttempts) {
-            console.error(
-              "Failed to find an unguessed Pokemon ID. Ending game."
+            console.warn(
+              `Failed to find random unguessed ID after ${maxAttempts} attempts. Searching sequentially.`
             );
-            // Attempt to find *any* unguessed ID as a last resort
             const unguessed = availablePokemonIds.find(
               (id) => !guessedPokemonIds.has(id)
             );
-            if (unguessed) {
+            if (unguessed !== undefined) {
               randomId = unguessed;
+              console.log(`Found unguessed ID sequentially: ${randomId}`);
             } else {
-              endGame("complete"); // Or some error state
+              console.error(
+                "Could not find any unguessed Pokemon ID. Ending game."
+              );
+              endGame("complete"); // Assume completion if no unguessed IDs are found
               return;
             }
           }
@@ -878,7 +1112,7 @@
               typeof currentPokemonImageUrl !== "string"
             ) {
               console.warn(
-                `Missing or invalid image URL for ${currentPokemonName} (ID: ${currentPokemonId}). Using fallback.`
+                `Missing or invalid image URL for ${currentPokemonName} (ID: ${currentPokemonId}). Using fallback sprite: ${data.sprites.front_default}`
               );
               currentPokemonImageUrl = data.sprites.front_default; // Use default sprite if official is bad
               if (!currentPokemonImageUrl) {
@@ -886,6 +1120,7 @@
                   `No valid image found for ${currentPokemonName}. Skipping.`
                 );
                 $("#loading").text("Image error. Loading another...");
+                // Don't add to guessedIds here, as it failed to load fully
                 setTimeout(loadPokemon, 1500); // Try loading a different Pokemon
                 return;
               }
@@ -897,7 +1132,7 @@
               .on("load", function () {
                 // Double-check if the game is still active and this is the intended pokemon
                 if (gameIsActive && currentPokemonId === data.id) {
-                  $(this).remove();
+                  $(this).remove(); // Clean up the preloader img element
                   $("#pokemon-image")
                     .attr("src", currentPokemonImageUrl)
                     .removeClass("hidden") // Show silhouette
@@ -906,27 +1141,37 @@
                   $("#loading").hide();
                   $("#pokemon-guess").prop("disabled", false).focus();
                   $("#feedback").text("Guess the Pokémon!");
-                  guessedPokemonIds.add(currentPokemonId); // Add to guessed *after* successful load
+                  // Add to guessed *only after* successful load and display
+                  guessedPokemonIds.add(currentPokemonId);
                   roundActive = true;
                   $("#skip-pokemon").show().prop("disabled", false); // Show and enable skip button
 
                   if (playCryEnabled) {
-                    playSound(currentPokemonCryUrl);
+                    // Play cry slightly after image appears
+                    setTimeout(() => playSound(currentPokemonCryUrl), 100);
                   }
                 } else {
-                  $(this).remove(); // Clean up if game state changed during load
+                  console.log(
+                    "Game state changed during image preload or ID mismatch. Aborting display."
+                  );
+                  $(this).remove(); // Clean up if game state changed or wrong pokemon loaded
                 }
               })
               .on("error", function () {
                 $(this).remove();
-                if (gameIsActive) {
-                  // Only retry if game is still running
+                if (gameIsActive && currentPokemonId === data.id) {
+                  // Check if error occurred for the *current* Pokemon load attempt
                   console.error(
                     `Error loading image for ${currentPokemonName} (ID: ${currentPokemonId}): ${currentPokemonImageUrl}`
                   );
                   $("#loading").text("Image error. Loading another...");
-                  // Don't add to guessedIds here, as it failed to load
-                  setTimeout(loadPokemon, 1500); // Try loading a different Pokemon
+                  // Do not add to guessedIds here if image fails
+                  // Attempt to load a different Pokemon
+                  setTimeout(loadPokemon, 1500);
+                } else {
+                  console.log(
+                    "Image load error for an old request or game not active."
+                  );
                 }
               });
           }).fail(function (jqXHR, textStatus, errorThrown) {
@@ -938,6 +1183,7 @@
                 `for ID: ${randomId}`
               );
               $("#loading").text("Error loading Pokémon data. Retrying...");
+              // Do not add to guessedIds here
               setTimeout(loadPokemon, 3000); // Retry loading
             }
           });
@@ -960,13 +1206,13 @@
           }
 
           // Filter selectedPokemonNames (which contains the normalized names for the current game)
-          const matches = selectedPokemonNames.filter((name) =>
-            name.startsWith(inputText)
-          );
+          const matches = selectedPokemonNames
+            .filter((name) => name.startsWith(inputText))
+            .sort(); // Sort matches alphabetically
 
           if (matches.length > 0) {
-            // Limit number of suggestions shown? e.g., top 10
-            matches.slice(0, 10).forEach((name, index) => {
+            // Limit number of suggestions shown
+            matches.slice(0, 7).forEach((name, index) => {
               const displayName = displayPokemonName(name); // Use display function for showing
               const $li = $("<li></li>")
                 .text(displayName)
@@ -980,22 +1226,22 @@
 
         // Autocomplete Keyboard Navigation
         $("#pokemon-guess").on("keydown", function (event) {
-          if (!roundActive) return;
+          if (!roundActive || !autocompleteEnabled) return; // Also check autocompleteEnabled here
 
           const $list = $("#autocomplete-list");
-          const listIsVisible = $list.is(":visible") && autocompleteEnabled;
+          const listIsVisible = $list.is(":visible");
 
           if (event.key === "Enter") {
-            event.preventDefault();
+            event.preventDefault(); // Prevent form submission/default action
             if (listIsVisible && highlightedAutocompleteIndex !== -1) {
               $list
                 .find("li")
                 .eq(highlightedAutocompleteIndex)
                 .trigger("click");
             } else {
-              checkGuess();
+              checkGuess(); // Check the typed guess if no suggestion selected
             }
-            $list.hide();
+            $list.hide(); // Always hide list on enter
             return;
           }
 
@@ -1008,26 +1254,34 @@
             return;
           }
 
+          // Only handle arrow keys if list is visible
           if (!listIsVisible) return;
 
           const $items = $list.find("li");
           const itemsCount = $items.length;
           if (itemsCount === 0) return;
 
+          let previousIndex = highlightedAutocompleteIndex;
+
           switch (event.key) {
             case "ArrowDown":
-            case "Tab":
+            case "Tab": // Treat Tab like ArrowDown in the list
               event.preventDefault();
               highlightedAutocompleteIndex =
                 (highlightedAutocompleteIndex + 1) % itemsCount;
-              highlightAutocompleteItem($items);
               break;
             case "ArrowUp":
               event.preventDefault();
               highlightedAutocompleteIndex =
                 (highlightedAutocompleteIndex - 1 + itemsCount) % itemsCount;
-              highlightAutocompleteItem($items);
               break;
+            default:
+              return; // Ignore other keys for navigation purposes
+          }
+
+          // Only update highlight if index changed
+          if (previousIndex !== highlightedAutocompleteIndex) {
+            highlightAutocompleteItem($items);
           }
         });
 
@@ -1036,14 +1290,19 @@
           if (highlightedAutocompleteIndex !== -1) {
             const $currentItem = $items.eq(highlightedAutocompleteIndex);
             $currentItem.addClass("autocomplete-highlight");
-            // Scroll into view logic (simplified)
+            // Scroll into view logic
             const listElement = $("#autocomplete-list")[0];
             const itemElement = $currentItem[0];
-            if (itemElement && listElement) {
+            // Check if elements exist before trying to scroll
+            if (
+              itemElement &&
+              listElement &&
+              typeof itemElement.scrollIntoView === "function"
+            ) {
               itemElement.scrollIntoView({
                 block: "nearest",
-                behavior: "auto",
-              }); // Use 'auto' for less jarring scroll
+                behavior: "smooth",
+              });
             }
           }
         }
@@ -1056,7 +1315,6 @@
           $("#autocomplete-list").hide().empty();
           highlightedAutocompleteIndex = -1;
           checkGuess(selectedName); // Check guess with the normalized name
-          // No focus needed here, checkGuess handles next step
         });
 
         // --- Hide Autocomplete on Click Outside ---
@@ -1079,7 +1337,7 @@
             directGuess ? directGuess : $("#pokemon-guess").val()
           );
           const $feedback = $("#feedback");
-          $("#autocomplete-list").hide();
+          $("#autocomplete-list").hide(); // Ensure list is hidden after guess attempt
 
           if (!userGuess) {
             $feedback
@@ -1094,7 +1352,11 @@
             normalizeName(currentPokemonName);
 
           if (userGuess === normalizedCurrentPokemonName) {
-            correctCount++;
+            // Correct guess handling only if it wasn't already marked incorrect
+            if (!firstIncorrectGuessMade) {
+              correctCount++;
+            } // Don't increment correct if they got it wrong first
+
             updateScoreDisplay();
             const dexNumText = showDexNumberEnabled
               ? ` (#${currentPokemonId})`
@@ -1110,19 +1372,20 @@
             revealPokemon(false); // Reveal image, feedback already set
             $("#pokemon-guess").prop("disabled", true);
             $("#skip-pokemon").hide().prop("disabled", true); // Hide and disable skip
-            $("#next-pokemon").show().focus();
-            roundActive = false;
+            $("#next-pokemon").show().focus(); // Show Next button and focus it
+            roundActive = false; // End the round successfully
           } else {
+            // Incorrect guess
             if (!firstIncorrectGuessMade) {
               incorrectCount++;
-              firstIncorrectGuessMade = true;
+              firstIncorrectGuessMade = true; // Mark that an incorrect guess has been made for this round
               updateScoreDisplay();
             }
             $feedback
               .text("Incorrect! Try again.")
               .removeClass("correct info")
               .addClass("incorrect");
-            $("#pokemon-guess").select(); // Select text for easy re-entry
+            $("#pokemon-guess").select().focus(); // Select text and keep focus for easy re-entry
           }
         }
 
@@ -1130,10 +1393,10 @@
         $("#skip-pokemon").on("click", function () {
           if (!roundActive || !gameIsActive) return;
 
-          // Mark as incorrect only if it wasn't already marked incorrect
+          // Mark as incorrect only if it wasn't already marked incorrect this round
           if (!firstIncorrectGuessMade) {
             incorrectCount++;
-            firstIncorrectGuessMade = true; // Prevents multiple increments if they guessed wrong then skipped
+            // No need to set firstIncorrectGuessMade = true here, as the round ends immediately
             updateScoreDisplay();
           }
 
@@ -1153,18 +1416,11 @@
                 currentPokemonName
               )}<span class="dex-number">${dexNumText}</span>`
             )
-            .removeClass("correct correct")
-            .addClass("incorrect"); // Show skipped feedback
+            .removeClass("correct") // Keep 'incorrect' class potentially
+            .addClass("info incorrect"); // Style as info/skipped, potentially also incorrect styling
 
-          // Show the next button instead of auto-loading, feels less abrupt
+          // Show the next button instead of auto-loading
           $("#next-pokemon").show().focus();
-
-          // // Automatically load the next Pokémon after a short delay
-          // setTimeout(() => {
-          //     if (gameIsActive) { // Check if game didn't end in the meantime
-          //         loadPokemon();
-          //     }
-          // }, 1500); // Delay to show the answer
         });
 
         // --- Handle "Next Pokémon" Button Click ---
@@ -1182,7 +1438,7 @@
         // --- Initial Setup ---
         populateGenerationCheckboxes(); // Add generation checkboxes to the DOM
         fetchAllPokemonNames(); // Start fetching all names immediately
-        initGame(); // Set up the initial screen state
+        initGame(); // Set up the initial screen state (will set all gens checked)
       });
     </script>
   </body>
