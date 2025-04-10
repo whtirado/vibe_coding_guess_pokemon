@@ -333,7 +333,7 @@
         display: block;
         margin: 0 auto;
         opacity: 1;
-        transition: opacity 0.3s ease-in-out, filter 0.3s ease-in-out; /* Added filter transition */
+        transition: opacity 0.3s ease-out, filter 0.3s ease-out; /* Added filter transition */
       }
       #pokemon-image.silhouette {
         filter: brightness(0);
@@ -660,6 +660,10 @@
 
         let highlightedAutocompleteIndex = -1;
 
+        // Preloading Variables
+        let preloadedPokemonData = null; // Stores {id, name, imageUrl, cryUrl}
+        let isPreloading = false; // Flag to prevent concurrent preloads
+
         // --- Utility Functions ---
         function formatTime(seconds) {
           const minutes = Math.floor(seconds / 60);
@@ -943,6 +947,8 @@
           selectedPokemonNames = [];
           totalSelectedPokemon = 0;
           randomlySelectedGens = []; // Clear random gens
+          preloadedPokemonData = null; // Clear preloaded data
+          isPreloading = false; // Reset preload flag
 
           $("#controls-container").show();
           $("#game-container").hide();
@@ -1067,6 +1073,8 @@
           correctCount = 0;
           incorrectCount = 0;
           guessedPokemonIds.clear();
+          preloadedPokemonData = null; // Clear preload cache
+          isPreloading = false;
           updateScoreDisplay();
 
           // --- Read Settings ---
@@ -1096,13 +1104,15 @@
           timeLeft = timerDuration;
           updateTimerDisplay();
           startTimer();
-          loadPokemon();
+          loadPokemon(); // Load the first Pokemon
         }
 
         function endGame(reason) {
           gameIsActive = false;
           roundActive = false;
           stopTimer();
+          preloadedPokemonData = null; // Clear preload cache
+          isPreloading = false;
 
           $("#pokemon-guess").prop("disabled", true);
           $("#next-pokemon").hide();
@@ -1166,15 +1176,108 @@
           timerInterval = null;
         }
 
-        // --- Pokémon Loading ---
+        // --- Pokémon Loading & Preloading ---
+
+        // Function to display the loaded Pokémon (either fetched or preloaded)
+        function displayLoadedPokemon(pokemonData) {
+          currentPokemonName = pokemonData.name;
+          currentPokemonId = pokemonData.id;
+          currentPokemonImageUrl = pokemonData.imageUrl;
+          currentPokemonCryUrl = pokemonData.cryUrl;
+
+          // Add to guessed *only after* deciding to display it
+          guessedPokemonIds.add(currentPokemonId);
+
+          // Simple check if the image URL looks valid (basic)
+          if (
+            !currentPokemonImageUrl ||
+            typeof currentPokemonImageUrl !== "string"
+          ) {
+            console.warn(
+              `Missing or invalid image URL for ${currentPokemonName} (ID: ${currentPokemonId}). Using fallback sprite: ${pokemonData.fallbackImageUrl}`
+            );
+            currentPokemonImageUrl = pokemonData.fallbackImageUrl;
+            if (!currentPokemonImageUrl) {
+              console.error(
+                `No valid image found for ${currentPokemonName}. Skipping.`
+              );
+              $("#loading").text("Image error. Loading another...");
+              // Do NOT trigger preload here, as the current one failed. Try loading next directly.
+              setTimeout(loadPokemon, 1500);
+              return; // Stop processing this Pokémon
+            }
+          }
+
+          // Preload image before showing
+          $("<img>")
+            .attr("src", currentPokemonImageUrl)
+            .on("load", function () {
+              // Double-check if the game is still active and this is the intended pokemon ID
+              // (this check might be less critical if using preloaded data correctly, but good safety)
+              if (gameIsActive && currentPokemonId === pokemonData.id) {
+                $(this).remove(); // Clean up the preloader img element
+                $("#pokemon-image")
+                  .attr("src", currentPokemonImageUrl)
+                  .removeClass("hidden") // Show silhouette
+                  .addClass("silhouette");
+
+                $("#loading").hide();
+                $("#pokemon-guess").prop("disabled", false).focus();
+                $("#feedback").text("Guess the Pokémon!");
+
+                roundActive = true;
+                $("#skip-pokemon").show().prop("disabled", false); // Show and enable skip button
+
+                // Display Dex Number Hint if enabled
+                if (showDexNumberEnabled) {
+                  $("#dex-hint")
+                    .text(`Hint: National Dex #${currentPokemonId}`)
+                    .show();
+                } else {
+                  $("#dex-hint").hide().text("");
+                }
+
+                if (playCryEnabled) {
+                  // Play cry slightly after image appears
+                  setTimeout(() => playSound(currentPokemonCryUrl), 100);
+                }
+
+                // --- Trigger Preloading for the NEXT Pokemon ---
+                triggerPreload();
+                // -----------------------------------------------
+              } else {
+                console.log(
+                  "Game state changed during image preload or ID mismatch. Aborting display."
+                );
+                $(this).remove(); // Clean up if game state changed or wrong pokemon loaded
+                // Do not trigger preload if display aborted
+              }
+            })
+            .on("error", function () {
+              $(this).remove();
+              if (gameIsActive && currentPokemonId === pokemonData.id) {
+                console.error(
+                  `Error loading image for ${currentPokemonName} (ID: ${currentPokemonId}): ${currentPokemonImageUrl}`
+                );
+                $("#loading").text("Image error. Loading another...");
+                // Do NOT trigger preload here, as the current one failed. Try loading next directly.
+                setTimeout(loadPokemon, 1500);
+              } else {
+                console.log(
+                  "Image load error for an old request or game not active."
+                );
+              }
+            });
+        }
+
         function loadPokemon() {
           if (!gameIsActive) return;
 
           // Check if all selected Pokemon have been guessed
-          const unguessedPokemonAvailable =
-            guessedPokemonIds.size < totalSelectedPokemon;
-          if (!unguessedPokemonAvailable) {
-            // Double check if any available IDs remain unguessed, just in case count is off
+          const remainingPokemonCount =
+            totalSelectedPokemon - guessedPokemonIds.size;
+          if (remainingPokemonCount <= 0) {
+            // Double check just in case
             const anyLeft = availablePokemonIds.some(
               (id) => !guessedPokemonIds.has(id)
             );
@@ -1183,10 +1286,8 @@
               return;
             } else {
               console.warn(
-                "Guessed count reached total, but unguessed IDs still available. Recalculating total."
+                "Guessed count reached total, but unguessed IDs still available."
               );
-              // This situation might indicate an issue elsewhere, but we try to continue
-              totalSelectedPokemon = availablePokemonIds.length; // Reset total just in case
             }
           }
 
@@ -1201,148 +1302,186 @@
           $("#next-pokemon").hide();
           $("#skip-pokemon").hide().prop("disabled", true); // Hide skip until loaded
           highlightedAutocompleteIndex = -1;
-          currentPokemonName = ""; // Reset current Pokemon data
-          currentPokemonId = null;
-          currentPokemonImageUrl = "";
-          currentPokemonCryUrl = "";
+          // Don't reset currentPokemon data here yet, wait until successful load
 
-          let randomId;
-          let attempts = 0; // Prevent infinite loops
-          const maxAttempts = availablePokemonIds.length * 2 + 10; // Generous safety limit
-
-          // Find an ID from the available list that hasn't been guessed yet
-          do {
-            const randomIndex = Math.floor(
-              Math.random() * availablePokemonIds.length
+          // --- Check for Preloaded Data ---
+          if (
+            preloadedPokemonData &&
+            !guessedPokemonIds.has(preloadedPokemonData.id)
+          ) {
+            console.log(
+              `Using preloaded data for: ${preloadedPokemonData.name} (#${preloadedPokemonData.id})`
             );
-            randomId = availablePokemonIds[randomIndex];
-            attempts++;
-          } while (guessedPokemonIds.has(randomId) && attempts < maxAttempts);
-
-          // If we failed after many attempts, try finding the first available unguessed ID sequentially
-          if (guessedPokemonIds.has(randomId) && attempts >= maxAttempts) {
-            console.warn(
-              `Failed to find random unguessed ID after ${maxAttempts} attempts. Searching sequentially.`
-            );
-            const unguessed = availablePokemonIds.find(
-              (id) => !guessedPokemonIds.has(id)
-            );
-            if (unguessed !== undefined) {
-              randomId = unguessed;
-              console.log(`Found unguessed ID sequentially: ${randomId}`);
-            } else {
-              console.error(
-                "Could not find any unguessed Pokemon ID. Ending game."
-              );
-              endGame("complete"); // Assume completion if no unguessed IDs are found
-              return;
-            }
-          }
-
-          const apiUrl = `https://pokeapi.co/api/v2/pokemon/${randomId}`;
-
-          $.getJSON(apiUrl, function (data) {
-            if (!gameIsActive) return; // Check if game ended while fetching
-
-            currentPokemonName = data.name;
-            currentPokemonId = data.id;
-            // Prefer official artwork, fallback to front_default sprite
-            currentPokemonImageUrl =
-              data.sprites.other?.["official-artwork"]?.front_default ||
-              data.sprites.front_default;
-            currentPokemonCryUrl =
-              data.cries?.latest || data.cries?.legacy || "";
-
-            // Simple check if the image URL looks valid (basic)
+            const dataToDisplay = preloadedPokemonData;
+            preloadedPokemonData = null; // Consume the preloaded data
+            displayLoadedPokemon(dataToDisplay); // Display this Pokémon
+          } else {
+            // --- No Valid Preload Data: Fetch New Pokemon ---
             if (
-              !currentPokemonImageUrl ||
-              typeof currentPokemonImageUrl !== "string"
+              preloadedPokemonData &&
+              guessedPokemonIds.has(preloadedPokemonData.id)
             ) {
-              console.warn(
-                `Missing or invalid image URL for ${currentPokemonName} (ID: ${currentPokemonId}). Using fallback sprite: ${data.sprites.front_default}`
+              console.log(
+                `Preloaded data for #${preloadedPokemonData.id} was already guessed. Fetching new.`
               );
-              currentPokemonImageUrl = data.sprites.front_default; // Use default sprite if official is bad
-              if (!currentPokemonImageUrl) {
+              preloadedPokemonData = null; // Discard stale preload data
+            }
+
+            let randomId;
+            let attempts = 0;
+            const maxAttempts = availablePokemonIds.length * 2 + 10;
+
+            do {
+              const randomIndex = Math.floor(
+                Math.random() * availablePokemonIds.length
+              );
+              randomId = availablePokemonIds[randomIndex];
+              attempts++;
+            } while (guessedPokemonIds.has(randomId) && attempts < maxAttempts);
+
+            if (guessedPokemonIds.has(randomId) && attempts >= maxAttempts) {
+              console.warn(
+                `Failed to find random unguessed ID after ${maxAttempts} attempts. Searching sequentially.`
+              );
+              const unguessed = availablePokemonIds.find(
+                (id) => !guessedPokemonIds.has(id)
+              );
+              if (unguessed !== undefined) {
+                randomId = unguessed;
+                console.log(`Found unguessed ID sequentially: ${randomId}`);
+              } else {
                 console.error(
-                  `No valid image found for ${currentPokemonName}. Skipping.`
+                  "Could not find any unguessed Pokemon ID. Ending game."
                 );
-                $("#loading").text("Image error. Loading another...");
-                // Don't add to guessedIds here, as it failed to load fully
-                setTimeout(loadPokemon, 1500); // Try loading a different Pokemon
+                endGame("complete");
                 return;
               }
             }
 
-            // Preload image
-            $("<img>")
-              .attr("src", currentPokemonImageUrl)
-              .on("load", function () {
-                // Double-check if the game is still active and this is the intended pokemon
-                if (gameIsActive && currentPokemonId === data.id) {
-                  $(this).remove(); // Clean up the preloader img element
-                  $("#pokemon-image")
-                    .attr("src", currentPokemonImageUrl)
-                    .removeClass("hidden") // Show silhouette
-                    .addClass("silhouette");
+            const apiUrl = `https://pokeapi.co/api/v2/pokemon/${randomId}`;
+            console.log(`Fetching data for Pokémon ID: ${randomId}`);
 
-                  $("#loading").hide();
-                  $("#pokemon-guess").prop("disabled", false).focus();
-                  $("#feedback").text("Guess the Pokémon!");
-                  // Add to guessed *only after* successful load and display
-                  guessedPokemonIds.add(currentPokemonId);
-                  roundActive = true;
-                  $("#skip-pokemon").show().prop("disabled", false); // Show and enable skip button
+            $.getJSON(apiUrl)
+              .done(function (data) {
+                if (!gameIsActive) return; // Check if game ended while fetching
 
-                  // Display Dex Number Hint if enabled
-                  if (showDexNumberEnabled) {
-                    $("#dex-hint")
-                      .text(`Hint: National Dex #${currentPokemonId}`)
-                      .show();
-                  } else {
-                    $("#dex-hint").hide().text("");
-                  }
+                const fetchedData = {
+                  id: data.id,
+                  name: data.name,
+                  imageUrl:
+                    data.sprites.other?.["official-artwork"]?.front_default ||
+                    data.sprites.front_default,
+                  cryUrl: data.cries?.latest || data.cries?.legacy || "",
+                  fallbackImageUrl: data.sprites.front_default, // Store fallback separately in case primary fails
+                };
 
-                  if (playCryEnabled) {
-                    // Play cry slightly after image appears
-                    setTimeout(() => playSound(currentPokemonCryUrl), 100);
-                  }
-                } else {
-                  console.log(
-                    "Game state changed during image preload or ID mismatch. Aborting display."
-                  );
-                  $(this).remove(); // Clean up if game state changed or wrong pokemon loaded
-                }
+                displayLoadedPokemon(fetchedData); // Display the fetched Pokémon
               })
-              .on("error", function () {
-                $(this).remove();
-                if (gameIsActive && currentPokemonId === data.id) {
-                  // Check if error occurred for the *current* Pokemon load attempt
+              .fail(function (jqXHR, textStatus, errorThrown) {
+                if (gameIsActive) {
                   console.error(
-                    `Error loading image for ${currentPokemonName} (ID: ${currentPokemonId}): ${currentPokemonImageUrl}`
+                    "PokeAPI fetch failed:",
+                    textStatus,
+                    errorThrown,
+                    `for ID: ${randomId}`
                   );
-                  $("#loading").text("Image error. Loading another...");
-                  // Do not add to guessedIds here if image fails
-                  // Attempt to load a different Pokemon
-                  setTimeout(loadPokemon, 1500);
-                } else {
-                  console.log(
-                    "Image load error for an old request or game not active."
-                  );
+                  $("#loading").text("Error loading Pokémon data. Retrying...");
+                  // Do not trigger preload on failure
+                  setTimeout(loadPokemon, 3000); // Retry loading current one
                 }
               });
-          }).fail(function (jqXHR, textStatus, errorThrown) {
-            if (gameIsActive) {
+          }
+        }
+
+        // Function to trigger preloading the next Pokemon
+        function triggerPreload() {
+          if (!gameIsActive || isPreloading) return;
+
+          const remainingPokemonCount =
+            totalSelectedPokemon - guessedPokemonIds.size;
+          // Don't preload if only the current one is left, or if already preloading.
+          if (remainingPokemonCount <= 1) {
+            console.log(
+              "Preload skipped: Not enough remaining Pokémon or already preloading."
+            );
+            return;
+          }
+
+          isPreloading = true;
+          let preloadId;
+          let attempts = 0;
+          const maxAttempts = availablePokemonIds.length * 2 + 10; // Safety limit
+
+          // Find a random, unguessed ID that is *different* from the current one
+          do {
+            const randomIndex = Math.floor(
+              Math.random() * availablePokemonIds.length
+            );
+            preloadId = availablePokemonIds[randomIndex];
+            attempts++;
+          } while ((guessedPokemonIds.has(preloadId) || preloadId === currentPokemonId) && attempts < maxAttempts);
+
+          // If we failed or only the current one is left unguessed after attempts
+          if (
+            guessedPokemonIds.has(preloadId) ||
+            preloadId === currentPokemonId
+          ) {
+            console.warn(
+              `Preload: Could not find suitable distinct unguessed ID after ${attempts} attempts. Searching sequentially.`
+            );
+            // Find the *first* available ID that isn't guessed and isn't current
+            const suitablePreload = availablePokemonIds.find(
+              (id) => !guessedPokemonIds.has(id) && id !== currentPokemonId
+            );
+            if (suitablePreload !== undefined) {
+              preloadId = suitablePreload;
+              console.log(
+                `Preload: Found sequential candidate ID: ${preloadId}`
+              );
+            } else {
+              console.log("Preload: No suitable Pokémon found to preload.");
+              isPreloading = false;
+              return; // No valid Pokemon to preload
+            }
+          }
+
+          const preloadApiUrl = `https://pokeapi.co/api/v2/pokemon/${preloadId}`;
+          console.log(`Preloading data for Pokémon ID: ${preloadId}`);
+
+          $.getJSON(preloadApiUrl)
+            .done(function (data) {
+              // Store minimal needed data
+              preloadedPokemonData = {
+                id: data.id,
+                name: data.name,
+                imageUrl:
+                  data.sprites.other?.["official-artwork"]?.front_default ||
+                  data.sprites.front_default,
+                cryUrl: data.cries?.latest || data.cries?.legacy || "",
+                fallbackImageUrl: data.sprites.front_default,
+              };
+              console.log(
+                `Successfully preloaded: ${preloadedPokemonData.name} (#${preloadedPokemonData.id})`
+              );
+
+              // Optional: Preload image asset in browser cache
+              if (preloadedPokemonData.imageUrl) {
+                const img = new Image();
+                img.src = preloadedPokemonData.imageUrl;
+              }
+            })
+            .fail(function (jqXHR, textStatus, errorThrown) {
               console.error(
-                "PokeAPI fetch failed:",
+                "Preload failed:",
                 textStatus,
                 errorThrown,
-                `for ID: ${randomId}`
+                `for ID: ${preloadId}`
               );
-              $("#loading").text("Error loading Pokémon data. Retrying...");
-              // Do not add to guessedIds here
-              setTimeout(loadPokemon, 3000); // Retry loading
-            }
-          });
+              preloadedPokemonData = null; // Clear preload data on failure
+            })
+            .always(function () {
+              isPreloading = false; // Allow next preload attempt
+            });
         }
 
         // --- Autocomplete Logic ---
@@ -1579,7 +1718,7 @@
         // --- Handle "Next Pokémon" Button Click ---
         $("#next-pokemon").on("click", function () {
           if (gameIsActive) {
-            loadPokemon();
+            loadPokemon(); // Load the next Pokemon (will use preload if available)
           }
         });
 
