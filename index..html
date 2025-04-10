@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Who's That Pokémon? (Gen 1)</title>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            text-shadow: 1px 1px 2px #aaa;
+        }
+
+        #game-container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+
+        #pokemon-display {
+            margin-bottom: 25px;
+            height: 200px; /* Fixed height for consistency */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #pokemon-image {
+            max-width: 100%;
+            max-height: 200px;
+            height: auto;
+            display: block; /* Remove extra space below image */
+            margin: 0 auto; /* Center image */
+        }
+
+        #pokemon-image.silhouette {
+            filter: brightness(0); /* Make the image black */
+        }
+
+        #guess-area {
+            position: relative; /* Needed for absolute positioning of autocomplete */
+            margin-bottom: 15px;
+        }
+
+        #pokemon-guess {
+            width: 90%;
+            padding: 12px 15px;
+            font-size: 1.1em;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box; /* Include padding in width */
+        }
+
+        #autocomplete-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            position: absolute;
+            left: 5%; /* Align with input */
+            right: 5%; /* Align with input */
+            top: 100%; /* Position below input */
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-top: none;
+            border-radius: 0 0 5px 5px;
+            max-height: 150px;
+            overflow-y: auto;
+            z-index: 10;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: none; /* Hidden by default */
+        }
+
+        #autocomplete-list li {
+            padding: 10px 15px;
+            cursor: pointer;
+            text-align: left;
+        }
+
+        #autocomplete-list li:hover {
+            background-color: #eee;
+        }
+
+        #feedback {
+            margin-top: 15px;
+            font-size: 1.2em;
+            font-weight: bold;
+            min-height: 1.5em; /* Prevent layout shifts */
+        }
+
+        #feedback.correct {
+            color: #28a745; /* Green */
+        }
+
+        #feedback.incorrect {
+            color: #dc3545; /* Red */
+        }
+
+         #next-pokemon {
+            display: none; /* Hidden initially */
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 1em;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+         }
+
+         #next-pokemon:hover {
+            background-color: #0056b3;
+         }
+
+         #loading {
+            font-size: 1.1em;
+            color: #555;
+         }
+
+    </style>
+</head>
+<body>
+
+    <h1>Who's That Pokémon?</h1>
+    <div id="game-container">
+        <div id="pokemon-display">
+            <p id="loading">Loading Pokémon...</p>
+            <img id="pokemon-image" src="" alt="Pokémon Silhouette" class="silhouette">
+        </div>
+        <div id="guess-area">
+            <input type="text" id="pokemon-guess" placeholder="Enter Pokémon name...">
+            <ul id="autocomplete-list"></ul>
+        </div>
+        <div id="feedback"></div>
+        <button id="next-pokemon">Next Pokémon</button>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            const gen1PokemonNames = [
+                "bulbasaur", "ivysaur", "venusaur", "charmander", "charmeleon", "charizard",
+                "squirtle", "wartortle", "blastoise", "caterpie", "metapod", "butterfree",
+                "weedle", "kakuna", "beedrill", "pidgey", "pidgeotto", "pidgeot", "rattata",
+                "raticate", "spearow", "fearow", "ekans", "arbok", "pikachu", "raichu",
+                "sandshrew", "sandslash", "nidoran-f", "nidorina", "nidoqueen", "nidoran-m",
+                "nidorino", "nidoking", "clefairy", "clefable", "vulpix", "ninetales",
+                "jigglypuff", "wigglytuff", "zubat", "golbat", "oddish", "gloom", "vileplume",
+                "paras", "parasect", "venonat", "venomoth", "diglett", "dugtrio", "meowth",
+                "persian", "psyduck", "golduck", "mankey", "primeape", "growlithe", "arcanine",
+                "poliwag", "poliwhirl", "poliwrath", "abra", "kadabra", "alakazam", "machop",
+                "machoke", "machamp", "bellsprout", "weepinbell", "victreebel", "tentacool",
+                "tentacruel", "geodude", "graveler", "golem", "ponyta", "rapidash", "slowpoke",
+                "slowbro", "magnemite", "magneton", "farfetchd", "doduo", "dodrio", "seel",
+                "dewgong", "grimer", "muk", "shellder", "cloyster", "gastly", "haunter",
+                "gengar", "onix", "drowzee", "hypno", "krabby", "kingler", "voltorb", "electrode",
+                "exeggcute", "exeggutor", "cubone", "marowak", "hitmonlee", "hitmonchan",
+                "lickitung", "koffing", "weezing", "rhyhorn", "rhydon", "chansey", "tangela",
+                "kangaskhan", "horsea", "seadra", "goldeen", "seaking", "staryu", "starmie",
+                "mr-mime", "scyther", "jynx", "electabuzz", "magmar", "pinsir", "tauros",
+                "magikarp", "gyarados", "lapras", "ditto", "eevee", "vaporeon", "jolteon",
+                "flareon", "porygon", "omanyte", "omastar", "kabuto", "kabutops", "aerodactyl",
+                "snorlax", "articuno", "zapdos", "moltres", "dratini", "dragonair", "dragonite",
+                "mewtwo", "mew"
+            ];
+
+            let currentPokemonName = '';
+            let currentPokemonImageUrl = '';
+            let gameActive = true; // To prevent guessing after correct answer
+
+            // --- Function to Load a New Pokémon ---
+            function loadPokemon() {
+                gameActive = true;
+                $('#pokemon-image').hide(); // Hide image while loading
+                $('#loading').show();       // Show loading text
+                $('#feedback').text('').removeClass('correct incorrect');
+                $('#pokemon-guess').val('').prop('disabled', false); // Clear and enable input
+                $('#autocomplete-list').hide().empty();
+                $('#next-pokemon').hide();
+
+                // Pick a random Pokémon ID from 1 to 151
+                const randomId = Math.floor(Math.random() * 151) + 1;
+                const apiUrl = `https://pokeapi.co/api/v2/pokemon/${randomId}`;
+
+                $.getJSON(apiUrl, function(data) {
+                    currentPokemonName = data.name;
+                    // Use official artwork for better quality silhouettes
+                    currentPokemonImageUrl = data.sprites.other['official-artwork'].front_default;
+
+                    if (!currentPokemonImageUrl) {
+                        // Fallback if official artwork is missing (rare for Gen 1)
+                        currentPokemonImageUrl = data.sprites.front_default;
+                    }
+
+                    $('#pokemon-image')
+                        .attr('src', currentPokemonImageUrl)
+                        .removeClass('revealed') // Ensure revealed class is removed
+                        .addClass('silhouette') // Add silhouette class
+                        .show(); // Show the image now
+                    $('#loading').hide(); // Hide loading text
+
+                }).fail(function() {
+                    $('#loading').text('Error loading Pokémon. Please refresh.');
+                    // Optionally try loading another one after a delay
+                    // setTimeout(loadPokemon, 3000);
+                });
+            }
+
+            // --- Autocomplete Logic ---
+            $('#pokemon-guess').on('input', function() {
+                if (!gameActive) return; // Don't autocomplete if game round is over
+
+                const inputText = $(this).val().toLowerCase().trim();
+                const $autocompleteList = $('#autocomplete-list');
+                $autocompleteList.empty().hide();
+
+                if (inputText.length === 0) {
+                    return;
+                }
+
+                const matches = gen1PokemonNames.filter(name => name.startsWith(inputText));
+
+                if (matches.length > 0) {
+                    matches.forEach(name => {
+                        // Handle names like nidoran-f/m for display
+                        const displayName = name.replace('-f', '♀').replace('-m', '♂');
+                        const $li = $('<li></li>').text(displayName).attr('data-value', name); // Store original value
+                        $autocompleteList.append($li);
+                    });
+                    $autocompleteList.show();
+                }
+            });
+
+            // --- Select Autocomplete Suggestion ---
+            // Use event delegation for dynamically added list items
+            $('#autocomplete-list').on('click', 'li', function() {
+                const selectedName = $(this).attr('data-value'); // Get stored original value
+                $('#pokemon-guess').val(selectedName); // Set input value to the original name
+                $('#autocomplete-list').hide().empty();
+                checkGuess(); // Optionally check guess immediately after selection
+            });
+
+            // --- Hide Autocomplete on Click Outside ---
+            $(document).on('click', function(event) {
+                // Hide if clicked outside the input and the autocomplete list
+                if (!$(event.target).closest('#pokemon-guess, #autocomplete-list').length) {
+                    $('#autocomplete-list').hide();
+                }
+            });
+
+            // --- Check Guess Function ---
+            function checkGuess() {
+                if (!gameActive) return; // Don't check if already answered correctly
+
+                const userGuess = $('#pokemon-guess').val().toLowerCase().trim();
+                const $feedback = $('#feedback');
+                $('#autocomplete-list').hide(); // Hide list after guess
+
+                if (userGuess === currentPokemonName) {
+                    $feedback.text(`Correct! It's ${currentPokemonName.charAt(0).toUpperCase() + currentPokemonName.slice(1).replace('-f', '♀').replace('-m', '♂')}!`).removeClass('incorrect').addClass('correct');
+                    $('#pokemon-image').removeClass('silhouette').addClass('revealed'); // Reveal!
+                    $('#pokemon-guess').prop('disabled', true); // Disable input
+                    $('#next-pokemon').show(); // Show 'Next' button
+                    gameActive = false; // Stop further guesses for this round
+                } else {
+                    $feedback.text('Incorrect! Try again.').removeClass('correct').addClass('incorrect');
+                    // Optionally clear input on wrong guess:
+                    // $('#pokemon-guess').val('');
+                }
+            }
+
+            // --- Handle Guess Submission (Enter Key) ---
+            $('#pokemon-guess').on('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault(); // Prevent potential form submission
+                    checkGuess();
+                }
+            });
+
+             // --- Handle "Next Pokémon" Button Click ---
+             $('#next-pokemon').on('click', function() {
+                loadPokemon();
+             });
+
+            // --- Initial Load ---
+            loadPokemon();
+        });
+    </script>
+
+</body>
+</html>
