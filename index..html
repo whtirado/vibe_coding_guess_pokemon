@@ -1119,7 +1119,9 @@
             $("#loading").hide(); // Hide loading text
           }
 
-          const finalMessageBase = `Final Score: ${correctCount} Correct, ${incorrectCount} Incorrect out of ${totalSelectedPokemon} selected Pokémon.`;
+          const finalMessageBase = `Final Score: ${correctCount} Correct, ${incorrectCount} Incorrect out of ${
+            correctCount + incorrectCount
+          } viewed Pokémon.`;
           let feedbackText = "";
 
           if (reason === "timeup") {
