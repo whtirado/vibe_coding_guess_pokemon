@@ -330,23 +330,28 @@
         max-width: 100%;
         max-height: 180px; /* Slightly smaller to avoid touching edges */
         height: auto;
-        display: block;
+        display: block; /* Changed from inline-block to block for consistency */
         margin: 0 auto;
-        opacity: 1;
+        opacity: 1; /* Start opaque */
         transition: opacity 0.3s ease-out, filter 0.3s ease-out; /* Added filter transition */
+        /* Removed initial silhouette/hidden here, will be controlled by JS before src is set */
       }
+      /* silhouette class applies the filter */
       #pokemon-image.silhouette {
         filter: brightness(0);
-        opacity: 1;
+        opacity: 1; /* Ensure silhouette is visible */
       }
+      /* hidden class controls visibility */
       #pokemon-image.hidden {
-        opacity: 0;
+        opacity: 0; /* Use opacity for smooth transition */
+        /* visibility: hidden; */ /* Alternative, but opacity allows transitions */
       }
 
       #loading {
         position: absolute;
         font-size: 1.1em;
         color: var(--secondary-color);
+        /* display: none; Initially hidden, shown by JS */
       }
 
       #guess-area {
@@ -579,7 +584,19 @@
           id="pokemon-image"
           src=""
           alt="Pokémon Silhouette"
-          class="silhouette hidden"
+          class="hidden"
+          <!--
+          Start
+          hidden,
+          JS
+          will
+          add
+          silhouette
+          before
+          removing
+          hidden
+          --
+        />
         />
       </div>
       <div id="guess-area">
@@ -683,7 +700,7 @@
         }
 
         function revealPokemon(showFeedback = true) {
-          $("#pokemon-image").removeClass("silhouette hidden");
+          $("#pokemon-image").removeClass("silhouette hidden"); // Reveal by removing silhouette and hidden
           if (showFeedback) {
             // Add dex number to feedback on reveal (optional, but good confirmation)
             const dexNumText = showDexNumberEnabled
@@ -788,6 +805,8 @@
               console.log(`Fetched ${allPokemonData.length} Pokémon names.`);
               $("#start-game").text("Start Game").prop("disabled", false);
               $("#loading-names").hide();
+              // Call updateSelectAllButtonText here AFTER data is loaded to check start button status correctly
+              updateSelectAllButtonText();
             }
           ).fail(function (jqXHR, textStatus, errorThrown) {
             console.error(
@@ -821,32 +840,55 @@
             `);
           });
           // Update select/deselect button text based on initial state
-          updateSelectAllButtonText();
+          // updateSelectAllButtonText(); // Delay this call until Pokemon data is loaded
           // Ensure random mode UI is off initially
           setRandomGenerationMode(false);
         }
 
         // --- Generation Selection Button Logic ---
         function updateSelectAllButtonText() {
+          // Only proceed if generation checkboxes are populated
           const $genCheckboxes = $(
             "#generation-selector input[type='checkbox']"
           );
+          if ($genCheckboxes.length === 0) return; // Avoid errors if called too early
+
           const allChecked =
-            $genCheckboxes.length > 0 &&
             $genCheckboxes.length === $genCheckboxes.filter(":checked").length;
           $("#select-all-gens-button").text(
             allChecked ? "Deselect All" : "Select All"
           );
+
           // Enable/disable start button based on selection (only if not in random mode)
+          // AND only if pokemon data has actually loaded
+          const dataLoaded = allPokemonData.length > 0;
           if (!randomGenerationsActive) {
             const anyChecked = $genCheckboxes.filter(":checked").length > 0;
-            $("#start-game").prop(
-              "disabled",
-              !anyChecked || allPokemonData.length === 0
-            );
+            $("#start-game").prop("disabled", !anyChecked || !dataLoaded);
           } else {
             // In random mode, start is always possible once data is loaded
-            $("#start-game").prop("disabled", allPokemonData.length === 0);
+            $("#start-game").prop("disabled", !dataLoaded);
+          }
+
+          // Update button text after data load if needed
+          if (!dataLoaded && !$("#start-game").prop("disabled")) {
+            $("#start-game")
+              .text("Loading Pokémon Data...")
+              .prop("disabled", true);
+          } else if (
+            dataLoaded &&
+            $("#start-game").prop("disabled") &&
+            (randomGenerationsActive ||
+              $genCheckboxes.filter(":checked").length > 0)
+          ) {
+            $("#start-game").text("Start Game").prop("disabled", false);
+          } else if (
+            dataLoaded &&
+            !$("#start-game").prop("disabled") &&
+            !randomGenerationsActive &&
+            $genCheckboxes.filter(":checked").length === 0
+          ) {
+            $("#start-game").prop("disabled", true); // Disable if data loaded, manual mode, but nothing selected
           }
         }
 
@@ -899,7 +941,7 @@
               "Randomly selected generations (hidden):",
               randomlySelectedGens.sort((a, b) => a - b)
             );
-            $("#start-game").prop("disabled", allPokemonData.length === 0); // Enable start if data ready
+            //$("#start-game").prop("disabled", allPokemonData.length === 0); // Enable start if data ready // Handled by updateSelectAllButtonText now
           } else {
             $("#generation-selector").show();
             $("#select-all-gens-button").show();
@@ -911,8 +953,10 @@
               "checked",
               true
             );
-            updateSelectAllButtonText(); // Update button text and check start button state
+            // updateSelectAllButtonText(); // Update button text and check start button state // Handled below
           }
+          // Always update start button state after changing mode
+          updateSelectAllButtonText();
         }
 
         $("#randomize-gens-button").on("click", function () {
@@ -946,7 +990,7 @@
           availablePokemonIds = [];
           selectedPokemonNames = [];
           totalSelectedPokemon = 0;
-          randomlySelectedGens = []; // Clear random gens
+          // randomlySelectedGens = []; // Clearing this here might interfere if user clicks Setup then Start quickly in random mode? Let's clear in startGame instead.
           preloadedPokemonData = null; // Clear preloaded data
           isPreloading = false; // Reset preload flag
 
@@ -960,17 +1004,15 @@
             "disabled",
             false
           );
-          // Special handling for start button until data loads
-          $("#start-game").prop("disabled", allPokemonData.length === 0);
 
-          // Reset options to defaults
+          // Reset options to defaults (do this before resetting gen mode)
           $("#play-cry-checkbox").prop("checked", false);
           $("#autocomplete-checkbox").prop("checked", true);
           $("#show-dex-number-checkbox").prop("checked", false);
 
           // Reset generation selection UI to default (manual, all checked)
-          setRandomGenerationMode(false); // Ensures manual mode is active, checkboxes shown, all checked
-          // updateSelectAllButtonText(); // Called within setRandomGenerationMode(false)
+          // This also calls updateSelectAllButtonText which handles start button state based on data loaded status
+          setRandomGenerationMode(false);
 
           // Reset timer display to configured duration
           $("#timer-setting").text(formatTime(timerDuration));
@@ -981,43 +1023,54 @@
             .text("Guess the Pokémon!")
             .removeClass("correct incorrect info");
           $("#dex-hint").hide().text(""); // Hide dex hint
-          $("#pokemon-image").addClass("silhouette hidden").attr("src", "");
-          $("#loading").show().text("Loading Pokémon...");
+          // Reset image state: hidden, NO silhouette, NO src
+          $("#pokemon-image")
+            .addClass("hidden")
+            .removeClass("silhouette")
+            .attr("src", "");
+          $("#loading").show().text("Loading Pokémon..."); // Show loading text in the image area initially
           $("#autocomplete-list").hide().empty();
           $("#next-pokemon").hide();
           $("#skip-pokemon").hide().prop("disabled", false); // Also hide skip button
-
-          // Ensure start button text is correct based on data load status
-          if (allPokemonData.length > 0) {
-            $("#start-game").text("Start Game").prop("disabled", false);
-            // Double check start button based on current generation mode/selection
-            updateSelectAllButtonText();
-          } else {
-            $("#start-game")
-              .text("Loading Pokémon Data...")
-              .prop("disabled", true);
-          }
         }
 
         function startGame() {
           // --- Determine Selected Generations and Filter Pokemon ---
           availablePokemonIds = [];
           selectedPokemonNames = [];
+          randomlySelectedGens = []; // Clear previous random selection if any
           let selectedGenerations = [];
 
           if (randomGenerationsActive) {
+            // Need to re-randomize if user clicked 'Start Game' in random mode
+            const numGensToSelect =
+              Math.floor(Math.random() * ALL_GEN_KEYS.length) + 1; // 1 to 9 gens
+            const availableGens = [...ALL_GEN_KEYS];
+            for (let i = 0; i < numGensToSelect; i++) {
+              const randomIndex = Math.floor(
+                Math.random() * availableGens.length
+              );
+              randomlySelectedGens.push(
+                availableGens.splice(randomIndex, 1)[0]
+              );
+            }
             selectedGenerations = randomlySelectedGens;
+
             if (selectedGenerations.length === 0) {
               alert(
                 "Error: No generations were randomly selected. Please try again."
               );
-              // Consider reverting to manual mode?
+              // Revert to manual mode on error
               setRandomGenerationMode(false);
               return;
             }
             console.log(
-              "Starting game with randomly selected generations:",
-              selectedGenerations.join(", ")
+              "Starting game with NEW randomly selected generations:",
+              selectedGenerations.sort((a, b) => a - b).join(", ")
+            );
+            // Update status text for clarity (optional)
+            $("#random-gen-status").text(
+              `Generations chosen: ${selectedGenerations.length} (Random)`
             );
           } else {
             selectedGenerations = $("#generation-selector input:checked")
@@ -1059,8 +1112,7 @@
             alert(
               "No Pokémon could be loaded for the selected generations. Please check the data or selection."
             );
-            // Re-enable start button if disabled
-            $("#start-game").prop("disabled", allPokemonData.length === 0);
+            // Re-enable relevant controls if needed (should be handled by initGame/setRandomGenMode)
             return;
           }
 
@@ -1089,10 +1141,7 @@
 
           // Disable setup controls during game
           $("#timer-controls button").prop("disabled", true);
-          $("#controls-container input, #controls-container button").prop(
-            "disabled",
-            true
-          );
+          //$("#controls-container input, #controls-container button").prop("disabled", true); // Keep setup buttons disabled
 
           $("#feedback")
             .text("Guess the Pokémon!")
@@ -1100,6 +1149,12 @@
           $("#dex-hint").hide().text(""); // Hide dex hint initially
           $("#skip-pokemon").hide(); // Hide skip initially
           $("#next-pokemon").hide(); // Hide next initially
+          // Prepare image area: loading text visible, image element hidden & cleared
+          $("#loading").show().text("Loading Pokémon...");
+          $("#pokemon-image")
+            .addClass("hidden")
+            .removeClass("silhouette")
+            .attr("src", "");
 
           timeLeft = timerDuration;
           updateTimerDisplay();
@@ -1125,7 +1180,10 @@
             revealPokemon(false); // Show the last Pokemon without feedback text override here
           } else {
             // If no Pokemon was loaded (e.g., time runs out instantly)
-            $("#pokemon-image").addClass("hidden").attr("src", ""); // Hide placeholder/loading
+            $("#pokemon-image")
+              .addClass("hidden")
+              .removeClass("silhouette")
+              .attr("src", ""); // Hide placeholder/loading
             $("#loading").hide(); // Hide loading text
           }
 
@@ -1201,27 +1259,29 @@
               console.error(
                 `No valid image found for ${currentPokemonName}. Skipping.`
               );
-              $("#loading").text("Image error. Loading another...");
+              $("#loading").show().text("Image error. Loading another...");
               // Do NOT trigger preload here, as the current one failed. Try loading next directly.
               setTimeout(loadPokemon, 1500);
               return; // Stop processing this Pokémon
             }
           }
 
-          // Preload image before showing
+          // Preload image in memory before showing silhouette
           $("<img>")
             .attr("src", currentPokemonImageUrl)
             .on("load", function () {
               // Double-check if the game is still active and this is the intended pokemon ID
-              // (this check might be less critical if using preloaded data correctly, but good safety)
               if (gameIsActive && currentPokemonId === pokemonData.id) {
                 $(this).remove(); // Clean up the preloader img element
-                $("#pokemon-image")
-                  .attr("src", currentPokemonImageUrl)
-                  .removeClass("hidden") // Show silhouette
-                  .addClass("silhouette");
 
-                $("#loading").hide();
+                // *** KEY CHANGE FOR SILHOUETTE FLASH ***
+                // Set the source, ensure silhouette class is present, THEN remove hidden class
+                $("#pokemon-image")
+                  .attr("src", currentPokemonImageUrl) // Set the source
+                  .addClass("silhouette") // Ensure silhouette style is applied
+                  .removeClass("hidden"); // NOW make it visible
+
+                $("#loading").hide(); // Hide the "Loading..." text
                 $("#pokemon-guess").prop("disabled", false).focus();
                 $("#feedback").text("Guess the Pokémon!");
 
@@ -1259,7 +1319,7 @@
                 console.error(
                   `Error loading image for ${currentPokemonName} (ID: ${currentPokemonId}): ${currentPokemonImageUrl}`
                 );
-                $("#loading").text("Image error. Loading another...");
+                $("#loading").show().text("Image error. Loading another...");
                 // Do NOT trigger preload here, as the current one failed. Try loading next directly.
                 setTimeout(loadPokemon, 1500);
               } else {
@@ -1276,7 +1336,8 @@
           // Check if all selected Pokemon have been guessed
           const remainingPokemonCount =
             totalSelectedPokemon - guessedPokemonIds.size;
-          if (remainingPokemonCount <= 0) {
+          if (remainingPokemonCount <= 0 && totalSelectedPokemon > 0) {
+            // Add check for totalSelectedPokemon > 0
             // Double check just in case
             const anyLeft = availablePokemonIds.some(
               (id) => !guessedPokemonIds.has(id)
@@ -1288,13 +1349,31 @@
               console.warn(
                 "Guessed count reached total, but unguessed IDs still available."
               );
+              // Attempt to find an unguessed ID just in case state is inconsistent
+              const unguessed = availablePokemonIds.find(
+                (id) => !guessedPokemonIds.has(id)
+              );
+              if (!unguessed) {
+                console.error(
+                  "Inconsistent state: No unguessed ID found despite mismatch. Ending game."
+                );
+                endGame("complete"); // End game if truly none left
+                return;
+              }
+              // If found, continue, but log the warning
+              console.log("Proceeding despite count mismatch.");
             }
           }
 
           roundActive = false;
           firstIncorrectGuessMade = false;
-          $("#pokemon-image").addClass("hidden silhouette").attr("src", ""); // Ensure silhouette is added initially, hide
-          $("#loading").show().text("Loading Pokémon...");
+          // *** KEY CHANGE FOR SILHOUETTE FLASH ***
+          // Prepare the image element: hide it, remove silhouette (will be added back before showing), clear src
+          $("#pokemon-image")
+            .addClass("hidden")
+            .removeClass("silhouette")
+            .attr("src", "");
+          $("#loading").show().text("Loading Pokémon..."); // Show loading text
           $("#feedback").text("").removeClass("correct incorrect info");
           $("#dex-hint").hide().text(""); // Hide hint while loading
           $("#pokemon-guess").val("").prop("disabled", true);
@@ -1331,17 +1410,33 @@
             let attempts = 0;
             const maxAttempts = availablePokemonIds.length * 2 + 10;
 
+            // Ensure availablePokemonIds is not empty before trying to pick one
+            if (availablePokemonIds.length === 0) {
+              console.error(
+                "loadPokemon called with no available Pokémon IDs. This shouldn't happen."
+              );
+              // Potentially end game or show an error
+              endGame("error"); // Or some other appropriate state
+              return;
+            }
+
             do {
               const randomIndex = Math.floor(
                 Math.random() * availablePokemonIds.length
               );
               randomId = availablePokemonIds[randomIndex];
               attempts++;
-            } while (guessedPokemonIds.has(randomId) && attempts < maxAttempts);
+              // Ensure we have IDs left to choose from
+            } while (
+              guessedPokemonIds.has(randomId) &&
+              attempts < maxAttempts &&
+              guessedPokemonIds.size < availablePokemonIds.length
+            );
 
-            if (guessedPokemonIds.has(randomId) && attempts >= maxAttempts) {
+            if (guessedPokemonIds.has(randomId)) {
+              // If the loop finished because it was guessed or max attempts reached
               console.warn(
-                `Failed to find random unguessed ID after ${maxAttempts} attempts. Searching sequentially.`
+                `Failed to find random unguessed ID after ${attempts} attempts or last one was guessed. Searching sequentially.`
               );
               const unguessed = availablePokemonIds.find(
                 (id) => !guessedPokemonIds.has(id)
@@ -1351,9 +1446,9 @@
                 console.log(`Found unguessed ID sequentially: ${randomId}`);
               } else {
                 console.error(
-                  "Could not find any unguessed Pokemon ID. Ending game."
+                  "Could not find any unguessed Pokemon ID even sequentially. Ending game."
                 );
-                endGame("complete");
+                endGame("complete"); // Assume completion if sequential search fails
                 return;
               }
             }
@@ -1385,7 +1480,9 @@
                     errorThrown,
                     `for ID: ${randomId}`
                   );
-                  $("#loading").text("Error loading Pokémon data. Retrying...");
+                  $("#loading")
+                    .show()
+                    .text("Error loading Pokémon data. Retrying..."); // Keep loading indicator
                   // Do not trigger preload on failure
                   setTimeout(loadPokemon, 3000); // Retry loading current one
                 }
@@ -1400,9 +1497,14 @@
           const remainingPokemonCount =
             totalSelectedPokemon - guessedPokemonIds.size;
           // Don't preload if only the current one is left, or if already preloading.
-          if (remainingPokemonCount <= 1) {
+          // Change to <= 0 as we load the *next* one (current one is already displayed)
+          if (remainingPokemonCount <= 0) {
+            console.log("Preload skipped: No remaining Pokémon.");
+            return;
+          }
+          if (isPreloading) {
             console.log(
-              "Preload skipped: Not enough remaining Pokémon or already preloading."
+              "Preload skipped: Another preload is already in progress."
             );
             return;
           }
@@ -1412,37 +1514,33 @@
           let attempts = 0;
           const maxAttempts = availablePokemonIds.length * 2 + 10; // Safety limit
 
+          // Ensure there are actually IDs left to choose from for preloading
+          const potentialPreloadIds = availablePokemonIds.filter(
+            (id) => !guessedPokemonIds.has(id) && id !== currentPokemonId
+          );
+          if (potentialPreloadIds.length === 0) {
+            console.log("Preload: No suitable Pokémon found to preload.");
+            isPreloading = false;
+            return;
+          }
+
           // Find a random, unguessed ID that is *different* from the current one
           do {
             const randomIndex = Math.floor(
-              Math.random() * availablePokemonIds.length
+              Math.random() * potentialPreloadIds.length
             );
-            preloadId = availablePokemonIds[randomIndex];
-            attempts++;
-          } while ((guessedPokemonIds.has(preloadId) || preloadId === currentPokemonId) && attempts < maxAttempts);
+            preloadId = potentialPreloadIds[randomIndex];
+            // No need for attempt counter here since we filtered the list first
+            // The loop condition is just to handle the unlikely case potentialPreloadIds was empty (already checked above)
+          } while (!preloadId && potentialPreloadIds.length > 0);
 
-          // If we failed or only the current one is left unguessed after attempts
-          if (
-            guessedPokemonIds.has(preloadId) ||
-            preloadId === currentPokemonId
-          ) {
+          // If somehow preloadId is still undefined (shouldn't happen with the check above)
+          if (!preloadId) {
             console.warn(
-              `Preload: Could not find suitable distinct unguessed ID after ${attempts} attempts. Searching sequentially.`
+              "Preload: Failed to select a preload ID from potential candidates."
             );
-            // Find the *first* available ID that isn't guessed and isn't current
-            const suitablePreload = availablePokemonIds.find(
-              (id) => !guessedPokemonIds.has(id) && id !== currentPokemonId
-            );
-            if (suitablePreload !== undefined) {
-              preloadId = suitablePreload;
-              console.log(
-                `Preload: Found sequential candidate ID: ${preloadId}`
-              );
-            } else {
-              console.log("Preload: No suitable Pokémon found to preload.");
-              isPreloading = false;
-              return; // No valid Pokemon to preload
-            }
+            isPreloading = false;
+            return;
           }
 
           const preloadApiUrl = `https://pokeapi.co/api/v2/pokemon/${preloadId}`;
@@ -1525,18 +1623,22 @@
 
           const $list = $("#autocomplete-list");
           const listIsVisible = $list.is(":visible");
+          const $items = $list.find("li");
+          const itemsCount = $items.length;
 
           if (event.key === "Enter") {
             event.preventDefault(); // Prevent form submission/default action
-            if (listIsVisible && highlightedAutocompleteIndex !== -1) {
-              $list
-                .find("li")
-                .eq(highlightedAutocompleteIndex)
-                .trigger("click");
+            if (
+              listIsVisible &&
+              highlightedAutocompleteIndex !== -1 &&
+              itemsCount > 0
+            ) {
+              $items.eq(highlightedAutocompleteIndex).trigger("click");
             } else {
               checkGuess(); // Check the typed guess if no suggestion selected
             }
             $list.hide(); // Always hide list on enter
+            highlightedAutocompleteIndex = -1; // Reset highlight index
             return;
           }
 
@@ -1549,12 +1651,8 @@
             return;
           }
 
-          // Only handle arrow keys if list is visible
-          if (!listIsVisible) return;
-
-          const $items = $list.find("li");
-          const itemsCount = $items.length;
-          if (itemsCount === 0) return;
+          // Only handle arrow keys if list is visible and has items
+          if (!listIsVisible || itemsCount === 0) return;
 
           let previousIndex = highlightedAutocompleteIndex;
 
@@ -1594,10 +1692,8 @@
               listElement &&
               typeof itemElement.scrollIntoView === "function"
             ) {
-              itemElement.scrollIntoView({
-                block: "nearest",
-                behavior: "smooth",
-              });
+              // Using 'nearest' should prevent excessive scrolling unless necessary
+              itemElement.scrollIntoView({ block: "nearest" });
             }
           }
         }
@@ -1610,6 +1706,7 @@
           $("#autocomplete-list").hide().empty();
           highlightedAutocompleteIndex = -1;
           checkGuess(selectedName); // Check guess with the normalized name
+          $("#pokemon-guess").focus(); // Refocus input after selection
         });
 
         // --- Hide Autocomplete on Click Outside ---
@@ -1654,11 +1751,12 @@
 
             updateScoreDisplay();
             // Feedback confirms name, Dex number added by revealPokemon if needed
+            // Basic correct message (revealPokemon will add Dex# if needed)
             $feedback
-              .html(`Correct! It's ${displayPokemonName(currentPokemonName)}`) // Basic correct message
+              .html(`Correct!`) // Keep it simple, revealPokemon adds the name
               .removeClass("incorrect info")
               .addClass("correct");
-            revealPokemon(true); // Reveal image AND update feedback with Dex# if needed
+            revealPokemon(true); // Reveal image AND update feedback with Name + Dex# if needed
             $("#pokemon-guess").prop("disabled", true);
             $("#skip-pokemon").hide().prop("disabled", true); // Hide and disable skip
             $("#next-pokemon").show().focus(); // Show Next button and focus it
@@ -1729,8 +1827,8 @@
 
         // --- Initial Setup ---
         populateGenerationCheckboxes(); // Add generation checkboxes to the DOM
-        fetchAllPokemonNames(); // Start fetching all names immediately
-        initGame(); // Set up the initial screen state (will set all gens checked, manual mode)
+        initGame(); // Set up the initial screen state (calls setRandomGenerationMode, which calls updateSelectAllButtonText)
+        fetchAllPokemonNames(); // Start fetching all names immediately (will enable start button via callback)
       });
     </script>
   </body>
