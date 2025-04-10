@@ -73,18 +73,19 @@
         margin-right: 10px;
         font-weight: bold;
       }
-      /* Specific style for the checkbox label */
-      #cry-controls label {
+      /* Specific style for the checkbox labels */
+      #cry-controls label,
+      #autocomplete-controls label {
         margin-left: 5px; /* Add space between checkbox and label */
         margin-right: 0; /* Reset right margin if not needed */
         font-weight: normal; /* Make checkbox label less bold */
       }
-      #cry-controls {
+      #cry-controls,
+      #autocomplete-controls {
         margin-top: 10px;
       }
 
-      #start-game,
-      #restart-game {
+      #start-game {
         margin-top: 15px;
         padding: 10px 20px;
         font-size: 1.1em;
@@ -95,14 +96,20 @@
         cursor: pointer;
         transition: background-color 0.2s ease;
       }
-      #start-game:hover,
-      #restart-game:hover {
+      #start-game:hover {
         background-color: #218838;
       }
       #restart-game {
-        display: none; /* Hidden initially */
+        /* display: none; // Managed by #endgame-controls display property */
         background-color: #007bff; /* Blue */
-        margin-left: 10px; /* Add space if both buttons appear (though they shouldn't simultaneously) */
+        margin-left: 10px; /* Add space if both buttons appear */
+        padding: 10px 20px;
+        font-size: 1em;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
       }
       #restart-game:hover {
         background-color: #0056b3;
@@ -280,8 +287,18 @@
         <input type="checkbox" id="play-cry-checkbox" name="play-cry" />
         <label for="play-cry-checkbox">Play Pokémon Cry</label>
       </div>
+      <!-- Autocomplete Checkbox -->
+      <div id="autocomplete-controls" class="control-option">
+        <input
+          type="checkbox"
+          id="autocomplete-checkbox"
+          name="autocomplete"
+          checked
+        />
+        <!-- Default to checked -->
+        <label for="autocomplete-checkbox">Enable Autocomplete</label>
+      </div>
       <button id="start-game">Start Game</button>
-      <!-- Restart button removed from here, will be shown in game-container on end -->
     </div>
 
     <div id="game-container">
@@ -317,9 +334,7 @@
       <!-- Controls shown after game end -->
       <div id="endgame-controls">
         <button id="restart-game">Restart Game</button>
-        <!-- Play again with same settings -->
         <button id="return-to-setup">Change Settings</button>
-        <!-- Go back to setup screen -->
       </div>
     </div>
 
@@ -494,6 +509,7 @@
         let timerDuration = 60; // Default 1 minute (in seconds)
         let timeLeft = 0;
         let playCryEnabled = false; // State for playing cries
+        let autocompleteEnabled = true; // State for autocomplete suggestions
 
         let gameIsActive = false; // Overall game state
         let roundActive = false; // Controls guessing for the current Pokemon
@@ -544,7 +560,7 @@
           if (url) {
             try {
               const audio = new Audio(url);
-              audio.volume = 0.3; // Set volume to 50%
+              audio.volume = 0.3; // Set volume to 30%
               audio
                 .play()
                 .catch((e) => console.error("Error playing sound:", e)); // Handle autoplay restrictions/errors
@@ -578,16 +594,18 @@
           incorrectCount = 0;
           guessedPokemonIds.clear();
           highlightedAutocompleteIndex = -1;
-          // Keep timerDuration as set by user unless we want to reset it
-          // timerDuration = 60; // Uncomment to always reset timer to 1:00
 
           $("#controls-container").show();
           $("#game-container").hide();
           $("#endgame-controls").hide(); // Hide endgame buttons
           $("#timer-controls button").prop("disabled", false);
           $("#play-cry-checkbox").prop("disabled", false);
-          // Reset checkbox to unchecked by default for a completely new setup
+          $("#autocomplete-checkbox").prop("disabled", false); // Enable autocomplete checkbox
+
+          // Reset checkboxes to defaults for a new setup
           $("#play-cry-checkbox").prop("checked", false);
+          $("#autocomplete-checkbox").prop("checked", true); // Default autocomplete to on
+
           $("#timer-setting").text(formatTime(timerDuration)); // Reflect current timer setting
           updateScoreDisplay(); // Reset score display
 
@@ -611,12 +629,14 @@
 
           // Read settings from controls
           playCryEnabled = $("#play-cry-checkbox").is(":checked");
+          autocompleteEnabled = $("#autocomplete-checkbox").is(":checked"); // Read autocomplete setting
 
           $("#controls-container").hide();
           $("#game-container").show();
           $("#endgame-controls").hide(); // Ensure endgame buttons are hidden on start
           $("#timer-controls button").prop("disabled", true); // Disable timer adjust during game
           $("#play-cry-checkbox").prop("disabled", true); // Disable cry checkbox during game
+          $("#autocomplete-checkbox").prop("disabled", true); // Disable autocomplete checkbox during game
 
           $("#feedback")
             .text("Guess the Pokémon!")
@@ -636,9 +656,12 @@
           $("#pokemon-guess").prop("disabled", true);
           $("#next-pokemon").hide();
           $("#autocomplete-list").hide();
-          revealPokemon(); // Show the last Pokemon if time ran out
+          if (currentPokemonImageUrl) {
+            // Only reveal if an image was loaded
+            revealPokemon(); // Show the last Pokemon if time ran out or game ended
+          }
 
-          const finalMessageBase = `Game Over! Final Score: ${correctCount} Correct, ${incorrectCount} Incorrect.`;
+          const finalMessageBase = `Final Score: ${correctCount} Correct, ${incorrectCount} Incorrect.`;
           let feedbackText = "";
 
           if (reason === "timeup") {
@@ -646,7 +669,7 @@
           } else if (reason === "complete") {
             feedbackText = `Congratulations! You guessed all ${TOTAL_POKEMON} Pokémon! ${finalMessageBase}`;
           } else {
-            feedbackText = finalMessageBase;
+            feedbackText = `Game Over! ${finalMessageBase}`; // Generic end
           }
 
           $("#feedback")
@@ -654,7 +677,7 @@
             .removeClass("correct incorrect")
             .addClass("info");
 
-          // Show the endgame controls
+          // Show the endgame controls div, which contains both buttons
           $("#endgame-controls").show();
         }
 
@@ -693,6 +716,7 @@
           $("#next-pokemon").hide();
           highlightedAutocompleteIndex = -1;
           currentPokemonCryUrl = ""; // Reset cry URL
+          currentPokemonImageUrl = ""; // Reset image URL
 
           let randomId;
           do {
@@ -717,7 +741,8 @@
               .attr("src", currentPokemonImageUrl)
               .on("load", function () {
                 if (gameIsActive && currentPokemonId === data.id) {
-                  $(this).remove();
+                  // Check if still relevant
+                  $(this).remove(); // Remove the preloader image element
                   $("#pokemon-image")
                     .attr("src", currentPokemonImageUrl)
                     .removeClass("hidden")
@@ -736,22 +761,31 @@
                 }
               })
               .on("error", function () {
+                $(this).remove(); // Remove preloader on error too
                 if (gameIsActive) {
+                  console.error(
+                    `Error loading image for Pokemon ID ${currentPokemonId}: ${currentPokemonImageUrl}`
+                  );
                   $("#loading").text("Image error. Loading another...");
-                  setTimeout(loadPokemon, 1500);
+                  setTimeout(loadPokemon, 1500); // Try loading a different Pokemon
                 }
               });
-          }).fail(function () {
+          }).fail(function (jqXHR, textStatus, errorThrown) {
             if (gameIsActive) {
+              console.error("PokeAPI fetch failed:", textStatus, errorThrown);
               $("#loading").text("Error loading Pokémon data. Retrying...");
-              setTimeout(loadPokemon, 3000);
+              setTimeout(loadPokemon, 3000); // Retry loading
             }
           });
         }
 
         // --- Autocomplete Logic ---
         $("#pokemon-guess").on("input", function () {
-          if (!roundActive) return;
+          if (!roundActive || !autocompleteEnabled) {
+            // Check if autocomplete is enabled
+            $("#autocomplete-list").empty().hide(); // Ensure list is hidden if disabled
+            return;
+          }
 
           const inputText = normalizeName($(this).val());
           const $autocompleteList = $("#autocomplete-list");
@@ -784,33 +818,50 @@
           if (!roundActive) return;
 
           const $list = $("#autocomplete-list");
-          if (!$list.is(":visible")) {
-            // If list is not visible, only handle Enter for submitting guess
-            if (event.key === "Enter") {
-              event.preventDefault();
-              checkGuess();
+          const listIsVisible = $list.is(":visible") && autocompleteEnabled; // Check if enabled AND visible
+
+          // Handle Enter key always for submission
+          if (event.key === "Enter") {
+            event.preventDefault();
+            if (listIsVisible && highlightedAutocompleteIndex !== -1) {
+              $list
+                .find("li")
+                .eq(highlightedAutocompleteIndex)
+                .trigger("click"); // Trigger click to select and check
+            } else {
+              checkGuess(); // Check current input if no item is highlighted or list not visible/enabled
             }
+            $list.hide(); // Hide list after Enter press
+            return; // Prevent further processing for Enter
+          }
+
+          // Handle Escape key always to hide list
+          if (event.key === "Escape") {
+            if (listIsVisible) {
+              event.preventDefault();
+              $list.hide();
+              highlightedAutocompleteIndex = -1;
+            }
+            return; // Prevent further processing for Escape
+          }
+
+          // Only handle Arrow/Tab navigation if the list should be visible and navigable
+          if (!listIsVisible) {
             return;
           }
 
           const $items = $list.find("li");
           const itemsCount = $items.length;
-
-          if (itemsCount === 0 && event.key === "Enter") {
-            event.preventDefault();
-            checkGuess(); // Check guess even if list is empty
-            return;
-          }
           if (itemsCount === 0) return; // No items to navigate
 
           switch (event.key) {
             case "ArrowDown":
-            case "Tab":
+            case "Tab": // Allow Tab to cycle down
               event.preventDefault();
               if (highlightedAutocompleteIndex < itemsCount - 1) {
                 highlightedAutocompleteIndex++;
               } else {
-                highlightedAutocompleteIndex = 0;
+                highlightedAutocompleteIndex = 0; // Wrap around
               }
               highlightAutocompleteItem($items);
               break;
@@ -820,59 +871,57 @@
               if (highlightedAutocompleteIndex > 0) {
                 highlightedAutocompleteIndex--;
               } else {
-                highlightedAutocompleteIndex = itemsCount - 1;
+                highlightedAutocompleteIndex = itemsCount - 1; // Wrap around
               }
               highlightAutocompleteItem($items);
-              break;
-
-            case "Enter":
-              event.preventDefault();
-              if (highlightedAutocompleteIndex !== -1) {
-                $items.eq(highlightedAutocompleteIndex).trigger("click"); // Trigger click to select and check
-              } else {
-                checkGuess(); // Check current input if no item is highlighted
-              }
-              $list.hide();
-              break;
-
-            case "Escape":
-              event.preventDefault();
-              $list.hide();
-              highlightedAutocompleteIndex = -1;
               break;
           }
         });
 
         function highlightAutocompleteItem($items) {
+          // This function only relevant if autocomplete is enabled, but check index anyway
           $items.removeClass("autocomplete-highlight");
           if (highlightedAutocompleteIndex !== -1) {
             const $currentItem = $items.eq(highlightedAutocompleteIndex);
             $currentItem.addClass("autocomplete-highlight");
+
+            // Scroll into view logic
             const listElement = $("#autocomplete-list")[0];
             const itemElement = $currentItem[0];
-            if (
-              itemElement.offsetTop < listElement.scrollTop ||
-              itemElement.offsetTop + itemElement.offsetHeight >
-                listElement.scrollTop + listElement.clientHeight
-            ) {
-              itemElement.scrollIntoView({ block: "nearest" });
+            // Check if itemElement exists before accessing properties
+            if (itemElement && listElement) {
+              // Basic scroll into view if needed
+              if (
+                itemElement.offsetTop < listElement.scrollTop ||
+                itemElement.offsetTop + itemElement.offsetHeight >
+                  listElement.scrollTop + listElement.clientHeight
+              ) {
+                itemElement.scrollIntoView({
+                  block: "nearest",
+                  behavior: "smooth",
+                });
+              }
             }
           }
         }
 
         // --- Select Autocomplete Suggestion (Click) ---
         $("#autocomplete-list").on("click", "li", function () {
+          // This event only triggers if list is visible (autocomplete enabled)
           if (!roundActive) return;
           const selectedName = $(this).attr("data-value");
           $("#pokemon-guess").val(displayPokemonName(selectedName)); // Show formatted name
           $("#autocomplete-list").hide().empty();
           highlightedAutocompleteIndex = -1;
           checkGuess(selectedName); // Check guess immediately with the correct normalized name
+          $("#pokemon-guess").focus(); // Keep focus on input for potential corrections? Or maybe not needed after click.
         });
 
         // --- Hide Autocomplete on Click Outside ---
         $(document).on("click", function (event) {
+          // Only hide if autocomplete is enabled and the list is potentially visible
           if (
+            autocompleteEnabled &&
             !$(event.target).closest("#pokemon-guess, #autocomplete-list")
               .length
           ) {
@@ -889,9 +938,15 @@
             directGuess ? directGuess : $("#pokemon-guess").val()
           );
           const $feedback = $("#feedback");
-          $("#autocomplete-list").hide();
+          $("#autocomplete-list").hide(); // Hide list after any guess attempt
 
-          if (!userGuess) return; // Ignore empty guess
+          if (!userGuess) {
+            $feedback
+              .text("Please enter a Pokémon name.")
+              .removeClass("correct incorrect")
+              .addClass("info");
+            return; // Ignore empty guess but provide feedback
+          }
 
           if (userGuess === currentPokemonName) {
             correctCount++;
@@ -901,10 +956,8 @@
               .removeClass("incorrect info")
               .addClass("correct");
             revealPokemon();
-            // Optionally play cry on correct guess too?
-            // if (playCryEnabled) playSound(currentPokemonCryUrl);
             $("#pokemon-guess").prop("disabled", true);
-            $("#next-pokemon").show().focus();
+            $("#next-pokemon").show().focus(); // Focus next button
             roundActive = false;
           } else {
             if (!firstIncorrectGuessMade) {
@@ -916,14 +969,13 @@
               .text("Incorrect! Try again.")
               .removeClass("correct info")
               .addClass("incorrect");
-            $("#pokemon-guess").select();
+            $("#pokemon-guess").select(); // Select text to easily type over
           }
         }
 
         // --- Handle "Next Pokémon" Button Click ---
         $("#next-pokemon").on("click", function () {
           if (gameIsActive) {
-            // Should only be clickable if game was active, but good check
             loadPokemon();
           }
         });
