@@ -1013,8 +1013,8 @@
           $("#dex-hint").hide().text(""); // Hide dex hint
           // Reset image state: hidden, NO silhouette, NO src
           $("#pokemon-image")
-            .addClass("hidden")
             .removeClass("silhouette")
+            .addClass("hidden")
             .attr("src", "");
           $("#loading").show().text("Loading Pokémon..."); // Show loading text in the image area initially
           $("#autocomplete-list").hide().empty();
